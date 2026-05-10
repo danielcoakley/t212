@@ -1,0 +1,15 @@
+name: isa_uk_us_core
+allowed_countries: ["GB", "US", "IE"]
+allowed_currencies: ["GBP", "GBX", "USD"]
+allowed_exchanges: ["LSE", "NASDAQ", "NYSE"]
+allowed_asset_types: ["STOCK", "ETF"]
+include_tickers:
+  - TSCO.L
+  - SHEL.L
+  - AAPL
+  - MSFT
+block_tickers: []
+liquidity:
+  min_price: 1.0
+  min_adv_gbp: 250000
+  min_history_days: 252

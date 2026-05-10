@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "isa-system"
+version = "0.1.0"
+description = "Local-first, audit-friendly UK Stocks and Shares ISA trading system starter."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Local Operator" }]
+dependencies = [
+    "alembic>=1.13",
+    "duckdb>=1.0",
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "keyring>=25",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "pyarrow>=15",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "python-dateutil>=2.9",
+    "PyYAML>=6.0",
+    "SQLAlchemy>=2.0",
+    "streamlit>=1.37",
+    "structlog>=24.1",
+    "tenacity>=8.3",
+    "typer>=0.12",
+    "uvicorn>=0.30",
+    "yfinance>=0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "hypothesis>=6.100",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "pytest>=8.2",
+    "pytest-mock>=3.14",
+    "ruff>=0.5",
+]
+sentiment = [
+    "praw>=7.7",
+]
+
+[project.scripts]
+isa-system = "isa_system.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+isa_system = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning:yfinance.*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["isa_system"]
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_untyped_defs = false

@@ -1,0 +1,28 @@
+[trading212]
+api_key = "PLACEHOLDER"
+api_secret = "PLACEHOLDER"
+environment = "demo"
+
+[alpha_vantage]
+api_key = "PLACEHOLDER"
+
+[financial_modeling_prep]
+api_key = "PLACEHOLDER"
+
+[sec]
+user_agent = "isa-system-dev example@example.com"
+
+[companies_house]
+api_key = "PLACEHOLDER"
+
+[fred]
+api_key = "PLACEHOLDER"
+
+[reddit]
+enabled = false
+client_id = "PLACEHOLDER"
+client_secret = "PLACEHOLDER"
+
+[x]
+enabled = false
+bearer_token = "PLACEHOLDER"
