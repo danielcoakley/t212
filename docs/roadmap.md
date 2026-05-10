@@ -20,12 +20,12 @@ point-in-time data checks, risk controls, and operator reviews are mature.
 | --- | --- | --- |
 | Live read-only broker integration | Done | Trading 212 account summary and positions can be loaded through read-only GET calls for dashboard and analytics context. Keep order submission disabled by default. |
 | Portfolio analytics | Done, then expand | Current analytics cover cash, invested value, concentration, currency exposure, top positions, and unrealised P/L where supplied. Next: valuation overlays, sleeve drift, drawdown, and benchmark context. |
-| Dashboard pages | In progress | Overview, Holdings, Catalysts, Rebalance, Factors, and Audit tabs exist. Next: add a Valuation page, richer source freshness panels, and a visible paper-to-live workflow. |
+| Dashboard pages | In progress | Overview, Holdings, Valuation, Catalysts, Rebalance, Factors, and Audit tabs now render live or local context. Next: paper workflow, source freshness timelines, and deeper official-source validation. |
 | Point-in-time official data | Planned | Architecture names SEC EDGAR, Companies House, LSE RNS, FCA NSM, and FRED as validation or macro layers. Next: ingestion adapters, retrieved-at metadata, PIT joins, and tests that reject look-ahead data. |
 | Factors and rankings | In progress | Quality, value, momentum, dividend, sector normalisation, composite scoring, and versioned strategy configs are scaffolded. Next: official timestamp alignment, missing-data policy, peer/sector valuation factors, and attribution views. |
 | Risk and rebalancing | In progress | Risk checks, cost-aware preview concepts, SDRT notes, idempotency, and safe HOLD preview behaviour exist. Next: target-weight optimiser, constraints, event vetoes, transaction-cost breakdown, and rebalance audit records. |
 | Paper/live controls | Guarded | Preview and paper modes are the operational default; live arming is explicit and live submit is blocked unless controls pass. Next: paper fill reconciliation, kill-switch drill evidence, duplicate-order soak tests, and micro-live readiness review. |
-| API and dashboard control plane | In progress | FastAPI health, mode, rebalance, metrics, and portfolio summary routes exist, with a Streamlit operator dashboard. Next: typed valuation, data freshness, run, and audit endpoints consumed by dashboard pages. |
+| API and dashboard control plane | In progress | FastAPI health, mode, rebalance, metrics, portfolio, valuation, and audit routes exist, with a Streamlit operator dashboard. Next: typed run-control, source freshness, and paper-submit endpoints consumed by dashboard pages. |
 | Tests and documentation | Done, then expand | Unit, integration, smoke, docs, CI, runbook, architecture, data source, and ISA notes exist. Next: PIT provider tests, dashboard route tests, paper/live control tests, valuation tests, and operator acceptance docs. |
 
 ## Research Report Alignment
@@ -50,8 +50,9 @@ sets the practical direction for the next few days of buildout:
 | Priority | Milestone | Owner surface | End-user result | Status |
 | --- | --- | --- | --- | --- |
 | P0 | Keep live broker integration read-only | Trading 212 adapter, portfolio API, dashboard | Operator can see current account value, cash, holdings, concentration, currency exposure, and warnings without creating orders. | Done |
-| P0 | Make valuation visible | Dashboard Valuation page, valuation API contract, docs | Operator can inspect current price, valuation multiples, source freshness, technical indicators, events, sentiment/news context, and margin-of-safety warnings before any rebalance. | In progress |
+| P0 | Make valuation visible | Dashboard Valuation page, valuation API contract, docs | Operator can inspect current price, valuation multiples, source freshness, technical indicators, events, sentiment/news context, and missing-data warnings before any rebalance. | Done, then expand |
 | P0 | Strengthen portfolio analytics | Portfolio service, dashboard widgets | Account health, sleeve drift, cash buffer, largest holdings, FX exposure, and unrealised P/L are visible at a glance. | In progress |
+| P0 | Replace dashboard placeholders | Catalysts, Factors, Audit pages | Left-nav pages show live holdings context, provider events/news, starter attribution, audit status, and smoke artefacts instead of synthetic rows. | Done, then expand |
 | P1 | Add PIT official data backbone | Data lake, official-source adapters, provider tests | Factors and events are joined only with data known at that time, with retrieved-at and accepted-at timestamps. | Planned |
 | P1 | Complete factor attribution | Factors, configs, dashboard | Quality, value, momentum, dividend, sector-neutral adjustments, missing-data policy, and config hash are explainable per ticker. | In progress |
 | P1 | Build paper rebalance workflow | Rebalancer, paper broker, audit log | Operator can generate targets, review costs and vetoes, submit to paper, and compare expected vs simulated fills. | In progress |
@@ -99,5 +100,6 @@ gantt
   batch hash.
 - Convenience feeds can support screening and enrichment, but official sources
   and retrieved timestamps decide point-in-time availability.
-- Valuation output is advisory context for review, not an automatic buy signal.
+- Valuation, catalyst, and starter factor output are advisory context for review,
+  not automatic buy or sell signals.
 - All user-facing times remain Europe/London; stored timestamps remain UTC.
