@@ -9,6 +9,7 @@ import streamlit as st
 def render() -> None:
     """Render factor attribution."""
 
+    st.title("Factor Attribution")
     st.dataframe(
         pd.DataFrame(
             [
@@ -23,3 +24,7 @@ def render() -> None:
         ),
         use_container_width=True,
     )
+
+
+if __name__ == "__main__":
+    render()

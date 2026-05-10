@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     """Runtime settings with safe local defaults."""
 
     model_config = SettingsConfigDict(
-        env_file=(".env.local", ".env"),
+        env_file=("env.local", ".env.local", ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
@@ -88,3 +88,9 @@ def get_settings() -> Settings:
     """Return cached settings."""
 
     return Settings()
+
+
+def clear_settings_cache() -> None:
+    """Clear cached settings after env-file changes in long-running apps."""
+
+    get_settings.cache_clear()

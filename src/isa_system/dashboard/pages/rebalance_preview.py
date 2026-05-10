@@ -5,13 +5,17 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from isa_system.dashboard.data import broker_snapshot
+from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
 
-def render() -> None:
+
+def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
     """Render preview table and warnings."""
 
-    st.error(
-        "Live submit is disabled until mode is live, armed, and kill switch is clear.", icon="!"
-    )
+    snapshot = snapshot or broker_snapshot()
+    st.title("Rebalance Preview")
+    st.error("Live submit is disabled until mode is live, armed, and kill switch is clear.")
+    st.caption(f"Read-only broker status: {snapshot.status}; environment: {snapshot.environment}.")
     st.dataframe(
         pd.DataFrame(
             [
@@ -33,3 +37,7 @@ def render() -> None:
         ),
         use_container_width=True,
     )
+
+
+if __name__ == "__main__":
+    render()
