@@ -52,7 +52,7 @@ def main() -> None:
     with tabs[5]:
         factor_attribution.render(snapshot)
     with tabs[6]:
-        audit_logs.render()
+        audit_logs.render(snapshot)
 
 
 if __name__ == "__main__":
