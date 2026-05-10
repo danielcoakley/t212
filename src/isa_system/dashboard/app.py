@@ -46,7 +46,7 @@ def main() -> None:
     with tabs[2]:
         valuation.render(snapshot)
     with tabs[3]:
-        catalysts.render()
+        catalysts.render(snapshot)
     with tabs[4]:
         rebalance_preview.render(snapshot)
     with tabs[5]:
