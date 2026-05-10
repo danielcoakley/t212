@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 import httpx
@@ -12,6 +12,10 @@ from isa_system.data.providers.base import ProviderNotConfigured
 from isa_system.data.providers.trading212 import Trading212Client, Trading212Settings
 from isa_system.settings import Settings, get_settings
 from isa_system.utils.time import now_utc
+
+CACHE_TTL_SECONDS = 15
+_SNAPSHOT_CACHE: BrokerPortfolioSnapshot | None = None
+_SNAPSHOT_CACHE_AT_UTC: datetime | None = None
 
 
 class BrokerPosition(BaseModel):
@@ -67,13 +71,20 @@ def trading212_settings_from_app(settings: Settings | None = None) -> Trading212
     )
 
 
-def load_trading212_portfolio(settings: Settings | None = None) -> BrokerPortfolioSnapshot:
+def load_trading212_portfolio(
+    settings: Settings | None = None, *, force_refresh: bool = False
+) -> BrokerPortfolioSnapshot:
     """Load live or demo Trading 212 account state using read-only endpoints."""
+
+    if settings is None and not force_refresh:
+        cached = _cached_snapshot()
+        if cached is not None:
+            return cached
 
     client_settings = trading212_settings_from_app(settings)
     retrieved_at_utc = now_utc()
     if not client_settings.configured:
-        return BrokerPortfolioSnapshot(
+        snapshot = BrokerPortfolioSnapshot(
             status="not_configured",
             environment=client_settings.environment,
             retrieved_at_utc=retrieved_at_utc,
@@ -82,19 +93,23 @@ def load_trading212_portfolio(settings: Settings | None = None) -> BrokerPortfol
                 "Trading 212 credentials were not found. Put them in env.local or .env.local."
             ],
         )
+        _store_snapshot(snapshot, settings)
+        return snapshot
 
     client = Trading212Client(client_settings)
     try:
         account = client.account_summary()
         positions = client.positions()
     except ProviderNotConfigured:
-        return BrokerPortfolioSnapshot(
+        snapshot = BrokerPortfolioSnapshot(
             status="not_configured",
             environment=client_settings.environment,
             retrieved_at_utc=retrieved_at_utc,
             positions=[],
             warnings=["Trading 212 credentials are not configured."],
         )
+        _store_snapshot(snapshot, settings)
+        return snapshot
     except httpx.HTTPStatusError as exc:
         return BrokerPortfolioSnapshot(
             status="error",
@@ -113,7 +128,7 @@ def load_trading212_portfolio(settings: Settings | None = None) -> BrokerPortfol
         )
 
     cash = account.cash or {}
-    return BrokerPortfolioSnapshot(
+    snapshot = BrokerPortfolioSnapshot(
         status=client_settings.environment,
         environment=client_settings.environment,
         retrieved_at_utc=now_utc(),
@@ -126,6 +141,36 @@ def load_trading212_portfolio(settings: Settings | None = None) -> BrokerPortfol
         ],
         warnings=[],
     )
+    _store_snapshot(snapshot, settings)
+    return snapshot
+
+
+def clear_portfolio_cache() -> None:
+    """Clear the in-process broker snapshot cache."""
+
+    global _SNAPSHOT_CACHE, _SNAPSHOT_CACHE_AT_UTC
+    _SNAPSHOT_CACHE = None
+    _SNAPSHOT_CACHE_AT_UTC = None
+
+
+def _cached_snapshot() -> BrokerPortfolioSnapshot | None:
+    """Return a recent cached broker snapshot when available."""
+
+    if _SNAPSHOT_CACHE is None or _SNAPSHOT_CACHE_AT_UTC is None:
+        return None
+    if now_utc() - _SNAPSHOT_CACHE_AT_UTC > timedelta(seconds=CACHE_TTL_SECONDS):
+        return None
+    return _SNAPSHOT_CACHE
+
+
+def _store_snapshot(snapshot: BrokerPortfolioSnapshot, settings: Settings | None) -> None:
+    """Store a broker snapshot when using global app settings."""
+
+    if settings is not None or snapshot.status == "error":
+        return
+    global _SNAPSHOT_CACHE, _SNAPSHOT_CACHE_AT_UTC
+    _SNAPSHOT_CACHE = snapshot
+    _SNAPSHOT_CACHE_AT_UTC = now_utc()
 
 
 def _normalise_position(payload: dict[str, Any]) -> BrokerPosition:

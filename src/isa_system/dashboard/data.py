@@ -6,6 +6,7 @@ import streamlit as st
 
 from isa_system.services.portfolio_state import (
     BrokerPortfolioSnapshot,
+    clear_portfolio_cache,
     load_trading212_portfolio,
 )
 
@@ -26,5 +27,6 @@ def broker_snapshot() -> BrokerPortfolioSnapshot:
 def refresh_broker_snapshot() -> BrokerPortfolioSnapshot:
     """Clear cache and reload broker state."""
 
+    clear_portfolio_cache()
     _broker_snapshot_payload.clear()
     return broker_snapshot()

@@ -8,6 +8,16 @@
 4. Review stale-data warnings and catalyst blackout windows.
 5. Do not submit live orders when reconciliation is stale.
 
+## Live Read-Only Dashboard
+
+The dashboard may connect to Trading 212 live account state using read-only GET
+endpoints for account summary and positions. This is safe for operator context
+only: it must not be confused with live trading. Keep `ISA_RUNTIME_MODE=preview`
+unless deliberately testing paper mode, and keep live order submission disarmed.
+
+Store credentials in `env.local`, `.env.local`, or the process environment. Do
+not commit real credentials.
+
 ## Paper to Micro-Live Promotion
 
 1. Run the smoke test and synthetic integration tests.
