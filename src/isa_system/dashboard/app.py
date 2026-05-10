@@ -50,7 +50,7 @@ def main() -> None:
     with tabs[4]:
         rebalance_preview.render(snapshot)
     with tabs[5]:
-        factor_attribution.render()
+        factor_attribution.render(snapshot)
     with tabs[6]:
         audit_logs.render()
 
