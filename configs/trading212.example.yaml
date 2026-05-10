@@ -1,0 +1,19 @@
+environment: demo
+base_urls:
+  demo: "https://demo.trading212.com/api/v0"
+  live: "https://live.trading212.com/api/v0"
+execution:
+  default_mode: preview
+  live_enabled: false
+  require_human_arm: true
+  dry_run_before_submit: true
+  max_orders_per_batch: 20
+  max_pending_orders_per_ticker: 50
+throttling:
+  account_summary_period_seconds: 5
+  instruments_period_seconds: 50
+  positions_period_seconds: 1
+  orders_period_seconds: 5
+idempotency:
+  key_scope: strategy_run_environment_date_payload
+  reject_duplicate_before_broker_post: true

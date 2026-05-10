@@ -1,0 +1,21 @@
+name: quality_momentum_value_dividend
+version: 1
+rebalance_frequency: monthly
+ranking:
+  score_mode: global
+  sector_neutral: true
+  winsorise_limits: [0.05, 0.95]
+factor_weights:
+  quality: 0.35
+  momentum: 0.30
+  value: 0.20
+  dividend_growth: 0.15
+hard_filters:
+  min_price: 1.0
+  min_adv_gbp: 250000
+  max_stale_days: 7
+  earnings_blackout_days_before: 5
+  earnings_blackout_days_after: 2
+target:
+  max_positions: 12
+  cash_buffer: 0.03

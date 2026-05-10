@@ -1,0 +1,21 @@
+sleeve:
+  algo_sleeve_fraction: 0.20
+  core_sleeve_fraction: 0.80
+  max_algo_drawdown_fraction: 0.12
+portfolio:
+  max_positions: 12
+  max_single_name_weight: 0.06
+  max_sector_weight: 0.25
+  turnover_budget: 0.25
+  cash_buffer: 0.03
+  min_trade_value_gbp: 25
+  country_caps:
+    GB: 0.70
+    US: 0.70
+costs:
+  commission_bps: 0
+  slippage_bps: 15
+  fx_spread_bps: 15
+  uk_sdrt_rate: 0.005
+  us_dividend_withholding_rate: 0.0
+  stress_slippage_multiplier: 2.0

@@ -1,0 +1,18 @@
+[app]
+environment = "local"
+timezone = "Europe/London"
+runtime_mode = "preview"
+bind_host = "127.0.0.1"
+bind_port = 8000
+
+[paths]
+data_lake_path = "data_lake"
+artifacts_path = "artifacts"
+raw_cache_path = "data_lake/raw"
+
+[database]
+dsn = "sqlite:///./artifacts/isa_system.sqlite3"
+
+[logging]
+level = "INFO"
+json = true

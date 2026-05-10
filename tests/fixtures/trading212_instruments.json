@@ -1,0 +1,10 @@
+[
+  {
+    "ticker": "AAPL_US_EQ",
+    "name": "Apple",
+    "isin": "US0378331005",
+    "currencyCode": "USD",
+    "type": "STOCK",
+    "workingScheduleId": 1
+  }
+]
