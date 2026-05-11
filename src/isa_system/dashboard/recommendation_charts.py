@@ -8,6 +8,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from isa_system.services.instrument_validation import InstrumentValidationResponse
 from isa_system.services.recommendation_handoff import RecommendationHandoffResponse
 from isa_system.services.recommendations import RecommendationsResponse
 from isa_system.utils.time import to_london
@@ -242,6 +243,78 @@ def render_handoff_table(frame: pd.DataFrame) -> None:
             "reason": st.column_config.TextColumn("Reason"),
             "blockers": st.column_config.TextColumn("Blockers"),
             "next_step": st.column_config.TextColumn("Next step"),
+        },
+    )
+
+
+def instrument_validation_frame(response: InstrumentValidationResponse) -> pd.DataFrame:
+    """Flatten instrument validation rows for dashboard display."""
+
+    rows: list[dict[str, Any]] = []
+    for item in response.rows:
+        payload = item.model_dump(mode="json")
+        rows.append(
+            {
+                "research_symbol": payload["research_symbol"],
+                "source": payload["source"],
+                "status": payload["status"],
+                "broker_ticker": payload.get("broker_ticker"),
+                "name": payload.get("name"),
+                "isin": payload.get("isin"),
+                "currency": payload.get("currency"),
+                "asset_type": payload.get("asset_type"),
+                "candidate_broker_tickers": ", ".join(
+                    payload.get("candidate_broker_tickers") or []
+                ),
+                "isa_eligibility": payload["isa_eligibility"],
+                "reason": payload["reason"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def render_instrument_validation_summary(
+    response: InstrumentValidationResponse, frame: pd.DataFrame
+) -> None:
+    """Render broker metadata validation metrics."""
+
+    counts = frame["status"].value_counts().to_dict() if not frame.empty else {}
+    cols = st.columns(4)
+    cols[0].metric("Broker matched", str(counts.get("BROKER_MATCHED", 0)))
+    cols[1].metric("Holdings confirmed", str(counts.get("HOLDING_CONFIRMED", 0)))
+    cols[2].metric("Needs mapping", str(counts.get("NEEDS_MAPPING", 0)))
+    cols[3].metric("Metadata rows", str(response.instrument_count))
+    retrieved = to_london(response.retrieved_at_utc)
+    st.caption(
+        f"Trading 212 metadata validation at {retrieved:%Y-%m-%d %H:%M:%S %Z}. "
+        "A broker match is not an order approval."
+    )
+    for warning in response.warnings:
+        st.warning(warning)
+
+
+def render_instrument_validation_table(frame: pd.DataFrame) -> None:
+    """Render Trading 212 instrument validation results."""
+
+    if frame.empty:
+        st.info("No instrument validation rows are available.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "research_symbol": st.column_config.TextColumn("Research symbol"),
+            "source": st.column_config.TextColumn("Source"),
+            "status": st.column_config.TextColumn("Broker validation"),
+            "broker_ticker": st.column_config.TextColumn("Broker ticker"),
+            "name": st.column_config.TextColumn("Name"),
+            "isin": st.column_config.TextColumn("ISIN"),
+            "currency": st.column_config.TextColumn("Currency"),
+            "asset_type": st.column_config.TextColumn("Type"),
+            "candidate_broker_tickers": st.column_config.TextColumn("Candidate tickers"),
+            "isa_eligibility": st.column_config.TextColumn("ISA state"),
+            "reason": st.column_config.TextColumn("Reason"),
         },
     )
 

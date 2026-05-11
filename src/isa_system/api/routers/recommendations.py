@@ -6,6 +6,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
+from isa_system.services.instrument_validation import (
+    InstrumentValidationResponse,
+    validate_recommendation_instruments,
+)
 from isa_system.services.portfolio_state import load_trading212_portfolio
 from isa_system.services.recommendation_handoff import (
     RecommendationHandoffResponse,
@@ -73,3 +77,31 @@ def recommendation_handoff(
         include_llm_rationale=False,
     )
     return build_recommendation_handoff(response)
+
+
+@router.get("/instrument-validation", response_model=InstrumentValidationResponse)
+def recommendation_instrument_validation(
+    candidates: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Optional watchlist symbols. Repeat the query parameter or pass comma-separated "
+                "symbols, for example candidates=AAPL&candidates=TSCO.L."
+            )
+        ),
+    ] = None,
+    include_defaults: Annotated[
+        bool,
+        Query(description="Include the default wider-market scan list."),
+    ] = True,
+) -> InstrumentValidationResponse:
+    """Return read-only Trading 212 instrument metadata validation for recommendations."""
+
+    snapshot = load_trading212_portfolio()
+    response = build_recommendations(
+        snapshot,
+        candidates=candidates,
+        include_default_candidates=include_defaults,
+        include_llm_rationale=False,
+    )
+    return validate_recommendation_instruments(response)

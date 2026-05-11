@@ -108,6 +108,22 @@ def test_recommendations_endpoint_is_offline_safe(monkeypatch: pytest.MonkeyPatc
         "NO_ACTION",
     }
 
+    instrument_response = TestClient(app).get(
+        "/recommendations/instrument-validation",
+        params=[("candidates", "TSCO.L"), ("include_defaults", "false")],
+    )
+
+    assert instrument_response.status_code == 200
+    instruments = instrument_response.json()
+    assert instruments["provider"] == "trading212"
+    assert {row["status"] for row in instruments["rows"]} <= {
+        "HOLDING_CONFIRMED",
+        "BROKER_MATCHED",
+        "NEEDS_MAPPING",
+        "NOT_CONFIGURED",
+        "ERROR",
+    }
+
 
 def _closes(count: int) -> list[DailyAdjustedClose]:
     start = datetime(2025, 1, 1, tzinfo=UTC)
