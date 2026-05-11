@@ -24,6 +24,7 @@ research assessment pass.
 | Priority | Milestone | End-user result | Status |
 | --- | --- | --- | --- |
 | P0 | Simplify UI to three primary screens | Operator sees Overview, Recommendations, and Research Review instead of repeated tabs and duplicate tables. | Done |
+| P0 | Add twice-daily dashboard cache and loading context | Expensive broker, screener, recommendation, validation, and research-gate context is cached around the London open and US open, persisted under ignored dashboard artefacts, with manual refresh and progress messages. | Done, then expand |
 | P0 | Use Trading 212 instrument metadata as broad scan seed | Recommendations can scan a broker-derived candidate universe, capped by config, with YAML fallback when metadata is unavailable. | In progress |
 | P0 | Add consolidated recommendation queue | Holdings and screener candidates appear in one table with action, score, broker validation, blockers, research status, and preview eligibility. | Done |
 | P0 | Add deep research gate | BUY/add rows require a persisted, non-expired OpenAI-backed `RESEARCH_PASSED` review before preview sizing. | In progress |
@@ -38,6 +39,7 @@ research assessment pass.
 | --- | --- | --- |
 | Live read-only Trading 212 portfolio | Done | Keep order endpoints guarded; improve metadata caching and diagnostics. |
 | Broad-market screener | In progress | Improve T212 universe filtering, liquidity evidence, stale-data flags, and top-candidate ranking. |
+| Dashboard cache and loading state | Done, then expand | Add cache health diagnostics and stale-source alerts after the twice-daily memory/disk cache is proven. |
 | Recommendation MVP | Done, then expand | Add source freshness badges, rank changes, and official-source evidence alongside convenience metrics. |
 | Deep research assessment | In progress | Add richer evidence packets, expiry policy controls, and review comparison over time. |
 | Valuation and technical context | In progress | Strengthen factor definitions, peer/sector context, and valuation scenarios. |
@@ -74,7 +76,7 @@ research assessment pass.
 
 | Month | Milestone | Included requirements | Exit criteria |
 | --- | --- | --- | --- |
-| Month 1 | MVP cockpit and research gate | Three-screen UI, T212 read-only context, broker-universe screener, consolidated recommendations, OpenAI deep research gate, preview-only hand-off | Operator can see account health, review candidates, run deep research, and create preview-only sizing without any order path. |
+| Month 1 | MVP cockpit and research gate | Three-screen UI, twice-daily cache, T212 read-only context, broker-universe screener, consolidated recommendations, OpenAI deep research gate, preview-only hand-off | Operator can see account health, review candidates, run deep research, and create preview-only sizing without any order path or repeated slow reloads. |
 | Month 2 | Point-in-time research and paper workflow | Official-source ingestion, PIT joins, richer factors, catalyst vetoes, paper fills, reconciliation, audit replay | Paper cycles are repeatable and auditable; PIT tests reject future information. |
 | Month 3 | Guarded live readiness | Idempotency drills, kill-switch drills, broker reconciliation, runbook evidence, micro-live go/no-go checklist | Live remains disabled by default and is only considered after repeated paper acceptance evidence. |
 
@@ -86,6 +88,7 @@ gantt
 
     section Month 1 - MVP cockpit
     Three-screen dashboard realignment       :done, m1a, 2026-05-11, 5d
+    Twice-daily cache and progress UI        :done, m1cache, 2026-05-11, 4d
     T212 broker-universe screener            :active, m1b, 2026-05-12, 8d
     Deep research gate and persistence       :active, m1c, 2026-05-13, 8d
     Recommendation-to-preview workflow       :active, m1d, 2026-05-18, 8d

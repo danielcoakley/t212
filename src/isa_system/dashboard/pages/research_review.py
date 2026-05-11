@@ -4,17 +4,14 @@ from __future__ import annotations
 
 import streamlit as st
 
-from isa_system.dashboard.data import broker_snapshot, recommendations
+from isa_system.dashboard.data import broker_snapshot, recommendation_workflow
 from isa_system.services.deep_research import (
     DeepResearchReview,
     build_deep_research_input,
     latest_deep_research_review,
-    latest_deep_research_reviews,
     run_deep_research,
 )
-from isa_system.services.instrument_validation import validate_recommendation_instruments
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
-from isa_system.services.recommendation_handoff import build_recommendation_handoff
 from isa_system.services.recommendations import RecommendationAction, TradeRecommendation
 from isa_system.utils.time import to_london
 
@@ -29,16 +26,33 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
         "gate only, not investment advice and not order authority."
     )
 
-    response = recommendations(snapshot, include_defaults=True, include_llm=False)
-    validation = validate_recommendation_instruments(response)
-    existing_reviews = latest_deep_research_reviews(
-        [item.candidate.research_symbol for item in response.recommendations]
-    )
-    handoff = build_recommendation_handoff(
-        response,
-        instrument_validation=validation,
-        research_reviews=existing_reviews,
-    )
+    progress = st.progress(0, text="Checking cached recommendation evidence.")
+    with st.status("Preparing research review context...", expanded=True) as status:
+        st.write("Loading the same cached recommendation workflow used by the queue.")
+        progress.progress(30, text="Loading recommendations and broker validation.")
+        try:
+            workflow = recommendation_workflow(snapshot, include_defaults=True, include_llm=False)
+        except Exception as exc:
+            progress.progress(100, text="Research review context failed to load.")
+            status.update(label="Research review context failed.", state="error")
+            st.error(
+                "The research review context could not be prepared. Refresh the dashboard "
+                "cache from the sidebar and try again."
+            )
+            with st.expander("Technical detail"):
+                st.exception(exc)
+            return
+        progress.progress(70, text="Loading persisted deep research review status.")
+        response = workflow.recommendations
+        validation = workflow.instrument_validation
+        handoff = workflow.handoff
+        cache_time = to_london(workflow.cache_window.opened_at_utc)
+        st.write(
+            f"Using {workflow.cache_window.label.lower()} from {cache_time:%Y-%m-%d %H:%M %Z}."
+        )
+        st.write(f"Recommendation bundle source: {workflow.cache_source}.")
+        progress.progress(100, text="Research review context ready.")
+        status.update(label="Research review context ready.", state="complete", expanded=False)
     candidates = [
         item
         for item in response.recommendations

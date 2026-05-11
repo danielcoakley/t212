@@ -13,10 +13,10 @@ Europe/London.
 
 | Screen area | Primary widgets | Purpose | Key actions |
 | --- | --- | --- | --- |
-| Sidebar | Workflow selector, mode badge, broker status, environment, kill-switch indicator, London time, broker warnings | Keep operational state visible before any analysis | Refresh broker state, confirm preview-only mode, inspect warnings |
+| Sidebar | Workflow selector, mode badge, broker status, environment, kill-switch indicator, London time, cache window, next scheduled refresh, broker warnings | Keep operational state visible before any analysis | Refresh market data manually, confirm preview-only mode, inspect warnings |
 | Overview | Account health, cash and invested value, 20% algo sleeve / 80% core sleeve summary, top holdings, concentration, currency exposure, unrealised P/L, next action | Let the operator understand current portfolio state without reading raw tables | Move to Recommendations when broker context is healthy; resolve broker warnings first |
-| Recommendations | One consolidated holdings and screener table with symbol, source, action, score, broker validation, research status, preview eligibility, blockers, next step, valuation and technical context | Replace duplicated tabs/tables with one review queue for holdings and broad-market candidates | Run deep research for buy/add ideas, select eligible rows, build preview-only sizing |
-| Research Review | Candidate selector, current evidence, latest thesis, bull/base/bear targets, drivers, risks, evidence gaps, final score, decision, expiry | Enforce OpenAI-backed thesis validation before buy/add preview sizing | Run deep research, inspect evidence gaps, accept only `RESEARCH_PASSED` rows into preview |
+| Recommendations | One consolidated holdings and screener table with symbol, source, action, score, broker validation, research status, preview eligibility, blockers, next step, valuation and technical context, loading progress | Replace duplicated tabs/tables with one review queue for holdings and broad-market candidates | Run deep research for buy/add ideas, select eligible rows, build preview-only sizing |
+| Research Review | Candidate selector, current evidence, latest thesis, bull/base/bear targets, drivers, risks, evidence gaps, final score, decision, expiry, loading progress | Enforce OpenAI-backed thesis validation before buy/add preview sizing | Run deep research, inspect evidence gaps, accept only `RESEARCH_PASSED` rows into preview |
 
 ## Recommendation Queue Columns
 
@@ -46,11 +46,12 @@ Europe/London.
 | Phase | Status | Screens and widgets | Done when |
 | --- | --- | --- | --- |
 | 1. Simplify operator workflow | Done | Three-screen Streamlit shell: Overview, Recommendations, Research Review | Primary UI no longer presents repeated tables as separate tabs. |
-| 2. T212 broker-universe screener | In progress | Recommendations queue sourced from Trading 212 metadata with YAML fallback | Live metadata can seed 250 instruments, filtered and capped to top 50 display rows. |
-| 3. Deep research gate | In progress | Research Review page and persisted review status in queue | BUY/add rows cannot become preview-eligible without non-expired `RESEARCH_PASSED`. |
-| 4. Recommendation-to-preview workflow | In progress | Selected eligible rows produce preview-only sizing and estimated costs | Preview rows show side, target weight, notional, costs, warnings, and blockers. |
-| 5. Paper reconciliation | Planned | Paper fill log, expected vs simulated fills, broker reconciliation comparison | Paper cycles can be reviewed and replayed before micro-live consideration. |
-| 6. Official-source enrichment | Planned | SEC, Companies House, RNS, NSM, FRED status and point-in-time diagnostics | Recommendation evidence shows official-source freshness and rejects look-ahead data. |
+| 2. Twice-daily dashboard cache | Done, then expand | Market-session cache keyed to London open and US open, ignored disk cache under `artifacts/dashboard_cache/`, manual refresh button, loading progress | Navigation and app restarts reuse cached broker/recommendation workflow data instead of rebuilding expensive feeds every page change. |
+| 3. T212 broker-universe screener | In progress | Recommendations queue sourced from Trading 212 metadata with YAML fallback | Live metadata can seed 250 instruments, filtered and capped to top 50 display rows. |
+| 4. Deep research gate | In progress | Research Review page and persisted review status in queue | BUY/add rows cannot become preview-eligible without non-expired `RESEARCH_PASSED`. |
+| 5. Recommendation-to-preview workflow | In progress | Selected eligible rows produce preview-only sizing and estimated costs | Preview rows show side, target weight, notional, costs, warnings, and blockers. |
+| 6. Paper reconciliation | Planned | Paper fill log, expected vs simulated fills, broker reconciliation comparison | Paper cycles can be reviewed and replayed before micro-live consideration. |
+| 7. Official-source enrichment | Planned | SEC, Companies House, RNS, NSM, FRED status and point-in-time diagnostics | Recommendation evidence shows official-source freshness and rejects look-ahead data. |
 
 ## Visualisation Backlog
 

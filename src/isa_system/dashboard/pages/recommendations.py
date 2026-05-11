@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from isa_system.dashboard.data import broker_snapshot, recommendations
+from isa_system.dashboard.data import broker_snapshot, recommendation_workflow
 from isa_system.dashboard.recommendation_charts import (
     consolidated_recommendation_frame,
     handoff_frame,
@@ -19,12 +19,9 @@ from isa_system.dashboard.recommendation_charts import (
     render_recommendation_evidence_table,
     render_recommendation_summary,
 )
-from isa_system.services.deep_research import latest_deep_research_reviews
-from isa_system.services.instrument_validation import validate_recommendation_instruments
-from isa_system.services.market_scan import load_broker_market_scan_universe
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
-from isa_system.services.recommendation_handoff import build_recommendation_handoff
 from isa_system.services.recommendation_preview import build_preview_from_recommendation_handoff
+from isa_system.utils.time import to_london
 
 
 def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
@@ -48,33 +45,53 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
         include_defaults = st.checkbox("Use Trading 212 universe scan", value=True)
         include_llm = st.checkbox("Attach short LLM rationale", value=False)
 
-    scan_universe = load_broker_market_scan_universe()
     candidates = tuple(
         item.strip()
         for chunk in raw_watchlist.splitlines()
         for item in chunk.split(",")
         if item.strip()
     )
-    response = recommendations(
-        snapshot,
-        candidates=candidates,
-        include_defaults=include_defaults,
-        include_llm=include_llm,
-    )
-    validation = validate_recommendation_instruments(response)
-    research_reviews = latest_deep_research_reviews(
-        [item.candidate.research_symbol for item in response.recommendations]
-    )
-    handoff = build_recommendation_handoff(
-        response,
-        instrument_validation=validation,
-        research_reviews=research_reviews,
-    )
+    progress = st.progress(0, text="Checking the current market-session cache.")
+    with st.status("Preparing recommendation workflow...", expanded=True) as status:
+        st.write("Checking the London/US open cache window.")
+        progress.progress(20, text="Loading cached broker snapshot and scan universe.")
+        try:
+            workflow = recommendation_workflow(
+                snapshot,
+                candidates=candidates,
+                include_defaults=include_defaults,
+                include_llm=include_llm,
+            )
+        except Exception as exc:
+            progress.progress(100, text="Recommendation workflow failed to load.")
+            status.update(label="Recommendation workflow failed.", state="error")
+            st.error(
+                "The recommendation queue could not be prepared. Use the sidebar refresh "
+                "button to rebuild the cache; if it keeps failing, check provider warnings."
+            )
+            with st.expander("Technical detail"):
+                st.exception(exc)
+            return
+        progress.progress(65, text="Validating broker symbols and research gate status.")
+        response = workflow.recommendations
+        validation = workflow.instrument_validation
+        handoff = workflow.handoff
+        cache_time = to_london(workflow.cache_window.opened_at_utc)
+        st.write(
+            f"Using {workflow.cache_window.label.lower()} from {cache_time:%Y-%m-%d %H:%M %Z}."
+        )
+        st.write(f"Recommendation bundle source: {workflow.cache_source}.")
+        st.write(
+            "Broker metadata, recommendation scores, hand-off blockers, and research gate "
+            "status are loaded."
+        )
+        progress.progress(100, text="Recommendation workflow ready.")
+        status.update(label="Recommendation workflow ready.", state="complete", expanded=False)
     queue = consolidated_recommendation_frame(response, handoff, validation)
 
     render_recommendation_summary(response, recommendation_frame(response))
     cols = st.columns(4)
-    cols[0].metric("Broker scan seed", str(len(scan_universe.symbols)))
+    cols[0].metric("Broker scan seed", str(len(workflow.scan_universe_symbols)))
     cols[1].metric("Broker metadata rows", str(validation.instrument_count))
     cols[2].metric("Preview eligible", str(handoff.eligible_count))
     cols[3].metric("Needs research/review", str(handoff.review_required_count))
@@ -125,7 +142,13 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
         st.subheader("Broker instrument validation")
         render_instrument_validation_table(instrument_validation_frame(validation))
 
-    for warning in [*scan_universe.warnings, *handoff.warnings, *validation.warnings]:
+    for warning in dict.fromkeys(
+        [
+            *workflow.scan_universe_warnings,
+            *handoff.warnings,
+            *validation.warnings,
+        ]
+    ):
         st.warning(warning)
 
 

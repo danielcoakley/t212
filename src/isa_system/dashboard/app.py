@@ -6,7 +6,12 @@ from datetime import UTC, datetime
 
 import streamlit as st
 
-from isa_system.dashboard.data import broker_snapshot, refresh_broker_snapshot
+from isa_system.dashboard.data import (
+    broker_snapshot,
+    cache_window,
+    recommendation_workflow,
+    refresh_market_data,
+)
 from isa_system.dashboard.pages import (
     overview,
     recommendations,
@@ -19,10 +24,18 @@ def main() -> None:
     """Render the starter dashboard."""
 
     st.set_page_config(page_title="ISA System", layout="wide")
+    window = cache_window()
     snapshot = broker_snapshot()
-    if st.sidebar.button("Refresh broker state"):
-        snapshot = refresh_broker_snapshot()
+    if st.sidebar.button("Refresh market data now", type="primary"):
+        with st.sidebar.status("Refreshing dashboard cache...", expanded=True) as status:
+            st.write("Clearing broker, instrument, valuation, and recommendation caches.")
+            snapshot = refresh_market_data()
+            st.write("Rebuilding the default recommendation workflow cache.")
+            recommendation_workflow(snapshot, include_defaults=True, include_llm=False)
+            status.update(label="Dashboard cache refreshed.", state="complete", expanded=False)
     london_now = to_london(datetime.now(tz=UTC))
+    opened = to_london(window.opened_at_utc)
+    next_refresh = to_london(window.next_refresh_at_utc)
     with st.sidebar:
         st.title("ISA System")
         page = st.radio(
@@ -35,7 +48,10 @@ def main() -> None:
         st.metric("Broker", snapshot.status)
         st.metric("Environment", snapshot.environment)
         st.metric("Kill switch", "Clear")
+        st.caption(f"Cache: {window.label} ({opened:%Y-%m-%d %H:%M %Z})")
+        st.caption(f"Next scheduled refresh: {next_refresh:%Y-%m-%d %H:%M %Z}")
         st.caption(f"London time: {london_now:%Y-%m-%d %H:%M:%S %Z}")
+        st.info(window.manual_refresh_hint)
         for warning in snapshot.warnings:
             st.warning(warning)
         with st.expander("Advanced diagnostics"):
