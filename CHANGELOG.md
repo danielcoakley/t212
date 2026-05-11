@@ -30,6 +30,9 @@ All notable project changes should be recorded here.
 - Added a side-effect-free operator report service and read-only API route for
   account, recommendation, research, preview, pilot-paper, and management
   evidence summaries.
+- Added API release-readiness checks for report and paper-cycle route
+  discovery, missing paper-cycle reloads, migration shape, and live-submit
+  guardrails.
 
 ### Fixed
 

@@ -767,9 +767,8 @@ intent/fill counts, expected/simulated totals, and persisted intent records
 while still distinguishing simulated-only paper workflow evidence. Missing
 paper reconciliation remains explicit.
 
-What remains: Broker reconciliation and a dashboard paper-cycle review surface
-are still future work. Reports can surface persisted cycle evidence but do not
-make it reconciled or live-executable.
+What remains: Broker reconciliation remains future work. Reports can surface
+persisted cycle evidence but do not make it reconciled or live-executable.
 
 Files touched:
 
@@ -792,3 +791,39 @@ Integration concerns: The report route only loads a requested persisted cycle;
 it does not persist paper output or mutate preview/pilot workflow endpoints.
 If a report is built with a stale or mismatched simulated workflow plus a
 persisted cycle, the paper section now warns and needs operator attention.
+
+### 2026-05-11 - API Release Readiness QA
+
+What changed: Added focused offline release-readiness checks around the newly
+integrated report and paper-cycle API surface. The checks keep the report and
+paper-cycle routes discoverable in OpenAPI, cover missing paper-cycle reloads,
+verify report/paper-cycle calls do not arm or authorize live submit, and make
+the `0003_paper_cycles` migration discoverable through Alembic with audited
+table/index/downgrade shape.
+
+What remains: Broker reconciliation remains a follow-up workstream. The report
+and Preview surfaces can now inspect persisted paper cycles, but they still do
+not turn simulated paper evidence into live execution authority.
+
+Files touched:
+
+- `tests/integration/test_api_release_readiness.py`
+- `tests/unit/test_migration_readiness.py`
+- `CHANGELOG.md`
+- `TODO.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/integration/test_api_release_readiness.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_migration_readiness.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/integration/test_api_release_readiness.py tests/integration/test_operator_report_api.py tests/integration/test_mvp_realignment_api.py tests/integration/test_mvp_guardrails.py tests/unit/test_migration_readiness.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The new tests monkeypatch provider/broker dependencies
+and use temporary SQLite files, so they stay offline and should not conflict
+with report/paper implementation branches. Future migrations may extend the
+Alembic chain, but `0003_paper_cycles` should remain discoverable by revision
+ID.

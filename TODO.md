@@ -7,10 +7,7 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 
 | Priority | Task | Owner | Branch/worktree | Status |
 | --- | --- | --- | --- | --- |
-| P1 | Paper/report integration | Turing | `codex/paper-report-integration` | Active in isolated worktree |
-| P1 | Paper cycle review surface | Cicero | `codex/paper-cycle-review` | Active in isolated worktree |
 | P1 | Identity diagnostics | Heisenberg | `codex/identity-diagnostics` | Active in isolated worktree |
-| P1 | API/release readiness QA | Franklin | `codex/api-release-readiness` | Active in isolated worktree |
 
 ## Completed This Cycle
 
@@ -25,14 +22,16 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 | Source freshness diagnostics | `2ad537e` | Added dashboard source/cache age helpers and source freshness displays. |
 | Paper intent and simulated fill persistence | `98b6754` | Added paper-cycle, paper-intent, and simulated-fill persistence with deterministic IDs. |
 | Operator report export shell | `261c92a` | Added side-effect-free report service and API route for MVP evidence summaries. |
+| Paper cycle review surface | `016d1ce` | Added Preview-page saved paper-cycle inspector and helper tests. |
+| Paper/report integration | `62cc85b` | Connected operator reports to supplied persisted paper-cycle evidence. |
+| API/release readiness QA | `pending integration` | Added offline release-readiness checks for report/paper-cycle API contracts, migration discovery/shape, missing paper-cycle reloads, and no-live-submit guardrails. |
 
 ## Next Queue
 
 | Priority | Task | Why next |
 | --- | --- | --- |
-| P1 | Connect operator reports to persisted paper cycles | Report shell landed before paper persistence integration, so it needs a small follow-up. |
-| P1 | Add paper cycle review surface | Operators need a clear way to inspect saved paper evidence before reconciliation. |
 | P1 | Add identity mapping slice for broker ticker, research symbol, and ISIN | Reduces the main instrument mismatch risk. |
+| P1 | Add paper reconciliation summary | Next logical step after persisted paper cycles and report integration. |
 | P2 | Add dashboard smoke/visual QA notes for Management, Recommendations, and Preview | Catches Streamlit rendering regressions outside pure unit tests. |
 
 ## Deferred
