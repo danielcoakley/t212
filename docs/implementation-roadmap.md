@@ -18,7 +18,7 @@ The codebase is a local-first Python 3.12 application with:
 | Strategy and risk | Factors, ranking, constraints, cost model, rebalancer, recommendation services, screener funnel, deep research gate, and recommendation-to-preview hand-off. |
 | Execution controls | Runtime mode state, guarded live arming, local idempotency keys, Trading 212 client, paper broker, and preview-only sizing. |
 | Auth and permissions | No user auth yet. Local-only binding and preview/live controls are the current safety boundary. |
-| Reporting | Smoke-test artifacts, backtest services, valuation charts, recommendation charts, audit log pages, paper workflow summaries, and API outputs exist, but no polished operator report export yet. |
+| Reporting | Smoke-test artifacts, backtest services, valuation charts, recommendation charts, audit log pages, paper workflow summaries, operator report shell, and API outputs exist. |
 | Release notes | Git history, `CHANGELOG.md`, `TODO.md`, `AGENTS.md`, and coordination docs now track MVP execution. |
 
 No `package.json` is present; this is a Python project and `pyproject.toml` is
@@ -44,15 +44,15 @@ The current MVP goal is:
 | Priority | Feature | Current state | Next implementation step |
 | --- | --- | --- | --- |
 | P0 | Operator cockpit workflow | Implemented in Streamlit with Management visibility | Continue simplifying workflow labels and empty/error states. |
-| P0 | Broker-readable portfolio and universe | Read-only account/positions and instrument metadata support exist | Add clearer freshness, rate-limit, and identity diagnostics. |
-| P0 | Recommendation queue and hand-off | Implemented with broker validation, research status, and review-state columns | Add source freshness badges and rank-change history. |
+| P0 | Broker-readable portfolio and universe | Read-only account/positions, instrument metadata support, and freshness diagnostics exist | Add identity diagnostics and rate-limit context. |
+| P0 | Recommendation queue and hand-off | Implemented with broker validation, research status, review-state columns, and source freshness context | Add rank-change history and official evidence links. |
 | P0 | Deep research gate | Implemented and persisted; OpenAI key absent means no buy approval | Improve evidence packets, expiry controls, and comparison between current and previous reviews. |
-| P0 | Preview-only sizing | Implemented for selected eligible recommendations, with pilot paper workflow shell | Add quantity estimates, cash impact, exposure limits, and persisted paper comparison. |
+| P0 | Preview-only sizing | Implemented for selected eligible recommendations, with pilot paper workflow shell and paper-cycle persistence | Add paper-cycle review surface and richer cash/exposure reporting. |
 | P0 | Safety management | Implemented as read-only Management diagnostics plus API mode routes and sidebar status | Add richer status APIs only where they reduce dashboard coupling. |
-| P1 | Paper trading loop | Paper broker, simulation, and workflow summary exist; persistence/reconciliation still thin | Persist paper order intents, fills, expected-vs-actual rows, and replayable paper cycles. |
+| P1 | Paper trading loop | Paper broker, simulation, workflow summary, and replayable paper-cycle persistence exist; reconciliation still thin | Add persisted cycle review, report integration, and expected-vs-actual reconciliation. |
 | P1 | Official UK evidence | Provider adapters/stubs exist | Prioritise Companies House identity, FCA NSM/RNS event tags, PDMR dealing, and short-interest parser versioning. |
 | P1 | Point-in-time identity mapping | Instrument registry exists; issuer identity is incomplete | Add explicit broker ticker, research symbol, ISIN, LEI, company number mapping with confidence and manual override. |
-| P1 | Reporting and release notes | Basic charts, audit pages, and changelog exist | Add run summary export once workflow slices stabilize. |
+| P1 | Reporting and release notes | Basic charts, audit pages, changelog, and operator report shell exist | Connect reports to persisted paper cycles and add export/display polish later. |
 
 ## Post-MVP Features
 
@@ -78,14 +78,12 @@ The current MVP goal is:
 
 ## Suggested Implementation Order
 
-1. Add source freshness and provider health diagnostics to recommendation and management surfaces.
-2. Persist paper order intents and simulated fills.
-3. Add operator report export shell for pilot evidence.
-4. Add paper reconciliation dashboard section.
-5. Add identity mapping table/service for broker ticker, research symbol, ISIN, LEI, and company number.
-6. Add official-source event ingestion depth for Companies House and FCA NSM/RNS.
-7. Expand catalyst tags and point-in-time tests.
-8. Revisit auth and hosted deployment only after local workflow evidence is strong.
+1. Connect operator reports to persisted paper cycles.
+2. Add paper cycle review surface and later reconciliation dashboard section.
+3. Add identity mapping table/service for broker ticker, research symbol, ISIN, LEI, and company number.
+4. Add official-source event ingestion depth for Companies House and FCA NSM/RNS.
+5. Expand catalyst tags and point-in-time tests.
+6. Revisit auth and hosted deployment only after local workflow evidence is strong.
 
 ## Dependencies And Risks
 

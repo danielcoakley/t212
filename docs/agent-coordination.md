@@ -17,11 +17,15 @@ management visibility come before any deeper live execution work.
 | UI/UX consistency and simplification | Unassigned | `codex/ui-cockpit-simplification` | Pending |
 | Local onboarding and pilot setup | Hypatia / orchestrator | `codex/parallel-partial-integration` | Completed first slice |
 | Pilot customer workflow | Meitner | `codex/parallel-partial-integration` | Completed workflow shell |
-| Paper persistence thin slice | Feynman | `codex/paper-intent-persistence` | Active in isolated worktree |
+| Paper persistence thin slice | Feynman | `codex/parallel-partial-integration` | Integrated |
 | Portfolio and instrument data model | Unassigned | `codex/identity-mapping` | Pending |
-| Source freshness diagnostics | Pascal | `codex/source-freshness-diagnostics` | Active in isolated worktree |
+| Source freshness diagnostics | Pascal | `codex/parallel-partial-integration` | Integrated |
 | Recommendation engine / agent output | Russell / orchestrator | `codex/parallel-partial-integration` | Completed display slice |
-| Report generation | Kant | `codex/operator-report-shell` | Active in isolated worktree |
+| Report generation | Kant | `codex/parallel-partial-integration` | Integrated report shell |
+| Paper/report integration | Unassigned | `codex/paper-report-integration` | Queued |
+| Paper cycle review surface | Unassigned | `codex/paper-cycle-review` | Queued |
+| Identity diagnostics | Unassigned | `codex/identity-diagnostics` | Queued |
+| API/release readiness QA | Unassigned | `codex/api-release-readiness` | Queued |
 | Auth, roles, permissions | Unassigned | `codex/auth-permission-design` | Pending |
 | Testing, QA, deployment readiness | Zeno | `codex/parallel-partial-integration` | Completed guardrail slice |
 | Management diagnostics phase 2 | Tesla | `codex/parallel-partial-integration` | Integrated |
@@ -32,10 +36,10 @@ This plan selects the next five practical MVP workstreams for separate Codex
 execution agents. The selection favours operator readiness, workflow clarity,
 pilot evidence, and regression protection over deeper enterprise architecture.
 
-Status update: the first isolated worker batch has been integrated into
-`codex/parallel-partial-integration` in the recommended order: QA guardrails,
-management diagnostics, then pilot paper workflow shell. Full tests and lint are
-green after integration.
+Status update: the first two isolated worker batches have been integrated into
+`codex/parallel-partial-integration`. The latest integrated batch landed source
+freshness diagnostics, paper intent persistence, and an operator report shell.
+Full tests and lint are green after integration.
 
 ### Selected Workstreams
 
@@ -75,11 +79,10 @@ before docs point to it, then merges user-facing recommendation and pilot flow
 changes. If QA tests depend on a later feature branch, split them so baseline
 guardrails merge first and feature-specific tests travel with the feature.
 
-### Next Parallel Batch
+### Integrated Parallel Batch 2
 
-The next safest batch should start from `codex/parallel-partial-integration`
-after the first worker batch is merged. These streams are intentionally scoped
-to keep MVP delivery ahead of speculative architecture:
+These streams started from `codex/parallel-partial-integration` after the first
+worker batch merged and are now integrated:
 
 | Priority | Workstream | Branch/worktree | Likely files/directories | Acceptance criteria | Conflict risk |
 | --- | --- | --- | --- | --- | --- |
@@ -88,9 +91,26 @@ to keep MVP delivery ahead of speculative architecture:
 | 3 | Source freshness diagnostics | `codex/source-freshness-diagnostics` | `src/isa_system/dashboard/pages/recommendations.py`, `src/isa_system/dashboard/pages/management.py`, `src/isa_system/dashboard/cache_policy.py`, `tests/unit` | Recommendation and Management surfaces expose cache/source age, provider gaps, and stale warnings without changing scoring. | Moderate; coordinate with report shell before editing dashboard pages. |
 | 4 | Identity mapping diagnostics | `codex/identity-diagnostics` | `src/isa_system/services/instrument_validation.py`, `src/isa_system/dashboard/pages/recommendations.py`, `tests/unit`, `docs` | Broker ticker, research symbol, ISIN, and validation confidence are easier to inspect before schema-heavy identity mapping. | Moderate; avoid migrations unless separately approved. |
 
-Recommended merge order for the next batch: source freshness diagnostics,
-identity diagnostics, report export shell, then paper persistence. If paper
-persistence introduces migrations, merge it last after a full integration pass.
+Actual merge order: source freshness diagnostics, paper persistence, then
+operator report shell. This landed durable paper evidence before the report
+shell became the next aggregation surface.
+
+### Next Parallel Batch
+
+The next batch should use `codex/parallel-partial-integration` as its base
+after commit `261c92a` or later. Keep these streams MVP-focused and avoid live
+execution work:
+
+| Priority | Workstream | Branch/worktree | Likely files/directories | Acceptance criteria | Conflict risk |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Paper/report integration | `codex/paper-report-integration` | `src/isa_system/services/operator_report.py`, `src/isa_system/services/paper_persistence.py`, `src/isa_system/api/routers/operator_report.py`, focused tests | Operator reports can include a supplied persisted paper cycle ID or clearly show no persisted cycle. Missing reconciliation remains explicit. | Moderate; owns report and paper service boundary. |
+| 2 | Paper cycle review surface | `codex/paper-cycle-review` | `src/isa_system/dashboard/pages/preview.py`, `src/isa_system/api/routers/rebalances.py`, `tests/unit`, `tests/integration` | Operators can see how to save/reload paper cycles from Preview/API output without changing live execution. | Moderate; avoid report service files. |
+| 3 | Identity diagnostics | `codex/identity-diagnostics` | `src/isa_system/services/instrument_validation.py`, `src/isa_system/dashboard/recommendation_charts.py`, `tests/unit`, docs | Broker ticker, research symbol, ISIN, and validation confidence are easier to inspect before schema-heavy mapping. | Moderate; avoid migrations unless separately approved. |
+| 4 | API/release readiness QA | `codex/api-release-readiness` | `tests/integration`, `src/isa_system/smoke_test.py`, `docs/runbook.md`, `TODO.md` | Fast offline checks cover new report and paper-cycle endpoints, migration shape, and no-live-submit guardrails. | Low; tests/docs first. |
+
+Recommended merge order for the next batch: API/release readiness QA, identity
+diagnostics, paper/report integration, then paper cycle review surface. Merge
+dashboard work last if it touches Preview rendering.
 
 ### Exact Execution Prompts
 
@@ -677,3 +697,34 @@ Integration concerns: Merge this after branches that also touch
 explicit side-effecting endpoint; `/rebalances/from-recommendations/preview` and
 `/rebalances/from-recommendations/pilot-workflow` remain preview-only and
 side-effect free.
+
+### 2026-05-11 - Orchestrator Second Batch Integration
+
+What changed: Integrated the second isolated worker batch into
+`codex/parallel-partial-integration`: source freshness diagnostics, paper intent
+persistence, and operator report shell. Updated roadmap, gap analysis, TODO, and
+changelog to reflect the new MVP baseline.
+
+What remains: The report shell landed independently of paper persistence, so the
+next small slice should connect operator reports to a supplied persisted paper
+cycle. Preview/dashboard should also gain a simple paper-cycle review surface.
+
+Files touched:
+
+- `CHANGELOG.md`
+- `TODO.md`
+- `docs/agent-coordination.md`
+- `docs/implementation-roadmap.md`
+- `docs/mvp-gap-analysis.md`
+
+Checks run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 105 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+- Browser smoke on `http://127.0.0.1:8502/`: Management and Recommendations
+  rendered without visible Streamlit exceptions after source freshness changes.
+
+Integration concerns: The second batch added a DB migration plus a new report
+router. Run a full integration pass after any branch touches the report/paper
+service boundary or Preview page rendering.

@@ -13,21 +13,21 @@ instrument validation, deep research review persistence, preview-only sizing,
 paper simulation, guarded live arming, audit logging, and tests around several
 critical flows.
 
-The highest-value next gap is durable pilot evidence. The first Management page
-and pilot workflow shell now make safety state and paper preview status visible,
-but paper intents, simulated fills, and reportable evidence are not yet
-persisted as replayable records.
+The highest-value next gap is paper evidence usability. The first Management
+page, pilot workflow shell, paper-cycle persistence, and operator report shell
+now exist, but reports and dashboard review surfaces do not yet make persisted
+paper cycles easy to inspect or compare against later reconciliation.
 
 ## Architecture Inventory
 
 | Layer | Exists | Only planned / thin | Notes |
 | --- | --- | --- | --- |
 | Frontend/dashboard | Streamlit cockpit with Overview, Screener, Recommendations, Deep Research, Preview, Management, Advanced | Onboarding checklist page, report export | Avoid adding a separate React app unless the product direction changes. |
-| Backend/API | FastAPI with health, config, backtest, rebalance, pilot workflow, mode, order, audit, metric, portfolio, recommendation, research, valuation routes | Rich management/status endpoint, persisted paper-cycle APIs, report APIs | Keep local-only semantics and explicit live guards. |
-| Database | Operational SQLAlchemy models for configs, rebalance runs, order batches, orders, fills, position/cash snapshots, risk events, audit, idempotency, registry, universe snapshots, research reviews | Issuer identity table, explicit identity mapping confidence, paper-cycle records, thesis records, alerts, settings audit diff detail | Avoid sweeping migrations until identity/paper slices are scoped. |
+| Backend/API | FastAPI with health, config, backtest, rebalance, pilot workflow, paper-cycle persistence, operator report, mode, order, audit, metric, portfolio, recommendation, research, valuation routes | Rich management/status endpoint, paper reconciliation APIs | Keep local-only semantics and explicit live guards. |
+| Database | Operational SQLAlchemy models for configs, rebalance runs, order batches, orders, fills, paper cycles/intents/simulated fills, position/cash snapshots, risk events, audit, idempotency, registry, universe snapshots, research reviews | Issuer identity table, explicit identity mapping confidence, thesis records, alerts, settings audit diff detail | Avoid sweeping migrations until identity slices are scoped. |
 | Auth/permissions | Local bind host, runtime mode, live arming, kill switch state | User auth, roles, approval permissions | Not MVP-critical for local-first use; document first. |
-| Reporting | Backtest and smoke outputs, Streamlit charts, audit log page, changelog | Weekly operator report export, paper acceptance evidence pack | Build from existing data after paper persistence. |
-| Workflow | Recommendation to research gate to preview-only sizing and paper workflow summary exists | Pilot cycle tracking, paper reconciliation, approval queue | Paper first, live later. |
+| Reporting | Backtest and smoke outputs, Streamlit charts, audit log page, changelog, operator report shell | Paper-cycle report integration, paper acceptance evidence pack | Build from existing paper persistence and report service. |
+| Workflow | Recommendation to research gate to preview-only sizing, paper workflow summary, and persisted paper cycles exist | Paper reconciliation, approval queue | Paper first, live later. |
 | Management/admin | Sidebar status, API mode endpoints, read-only Management page | Rich status endpoint, write controls only after explicit safety review | Keep Management read-only for MVP. |
 
 ## Current Feature Status
@@ -36,11 +36,11 @@ persisted as replayable records.
 | --- | --- | --- | --- |
 | Local setup and tests | Exists | `README.md`, `pyproject.toml`, tests | Add onboarding/setup checklist once Management page exists. |
 | Trading 212 read-only portfolio | Exists | `portfolio_state.py`, Trading 212 client, dashboard overview | Better freshness and provider diagnostics. |
-| Broker-universe scan seed | Exists | `market_scan.py`, `market_screener.py`, recommendation routes | Add source freshness and coverage warnings. |
-| Recommendations | Exists | `recommendations.py`, `recommendation_handoff.py`, dashboard charts/tests | Add rank changes, source freshness, official evidence links. |
+| Broker-universe scan seed | Exists | `market_scan.py`, `market_screener.py`, recommendation routes | Add coverage warnings and identity diagnostics. |
+| Recommendations | Exists | `recommendations.py`, `recommendation_handoff.py`, dashboard charts/tests | Add rank changes and official evidence links. |
 | Deep research gate | Exists | `deep_research.py`, `research_reviews.py`, migration `0002` | Improve evidence packets and review comparison. |
-| Preview-only sizing | Exists | `recommendation_preview.py`, `/rebalances/from-recommendations/preview` | Add persisted paper comparison and richer cash/exposure reporting. |
-| Paper simulation | Partial | `paper_broker.py`, `paper_simulation.py`, pilot workflow endpoint | Persist paper intents/fills and reconcile against preview. |
+| Preview-only sizing | Exists | `recommendation_preview.py`, `/rebalances/from-recommendations/preview`, paper-cycle save/reload routes | Add paper cycle review surface and richer cash/exposure reporting. |
+| Paper simulation | Partial | `paper_broker.py`, `paper_simulation.py`, pilot workflow endpoint, persisted paper cycles | Reconcile persisted paper cycles against preview and later broker evidence. |
 | Live execution | Guarded starter | `modes.py`, Trading 212 submit client, idempotency manager | Keep guarded; do not expand before paper acceptance. |
 | Official UK evidence | Partial/stub | FCA NSM, LSE RNS, Companies House provider modules | Need robust PIT ingestion and parser tests. |
 | Identity mapping | Partial | Instrument registry, instrument validation | Need issuer mapping and confidence/manual overrides. |
@@ -50,51 +50,34 @@ persisted as replayable records.
 
 ## MVP-Critical Gaps
 
-### 1. Paper Cycle Persistence
+### 1. Paper Evidence Usability
 
 Why it matters: Paper trading is the bridge between preview and any future
-micro-live readiness. The current workflow can summarize expected vs simulated
-paper output, but it is not yet durable or replayable.
+micro-live readiness. The current workflow can persist expected vs simulated
+paper output, but operators still need a clear review surface and report link.
 
 Recommended slice:
 
-- Persist selected preview rows as paper order intents.
-- Persist simulated fills.
-- Add expected-vs-simulated reconciliation summary.
-- Keep the migration small and document rollback/follow-up implications.
+- Allow the operator report shell to include a supplied persisted paper cycle.
+- Add a small dashboard/API review surface for saved paper cycles.
+- Keep reconciliation status explicit as unavailable until broker evidence is
+  ingested.
 
 Acceptance:
 
-- A paper cycle can be replayed and audited.
-- Preview cost assumptions remain visible.
+- Persisted paper cycles can be inspected without re-running preview.
+- Report output can distinguish simulated, persisted, and reconciled evidence.
 - No live submit path is added.
 
-### 2. Operator Report Export
-
-Why it matters: The operator needs paper acceptance evidence and later agents
-need implementation history.
-
-Recommended slice:
-
-- Add a side-effect-free report summary service.
-- Aggregate account, recommendation, research, preview, management, and paper
-  status into JSON or Markdown-ready sections.
-- Make missing data explicit instead of inventing completeness.
-
-Acceptance:
-
-- Report output can support a weekly operator review.
-- The service works without live broker submit access.
-
-### 3. Identity Mapping
+### 2. Identity Mapping
 
 Why it matters: Broker tickers, research symbols, ISINs, LEIs, and company
 numbers are a primary operational risk.
 
 Recommended slice:
 
-- Add an identity mapping model and migration.
-- Connect Trading 212 metadata to ISIN and research symbol first.
+- Add an identity diagnostics view/service before a schema-heavy mapping table.
+- Expose broker ticker, research symbol, ISIN, and validation confidence.
 - Leave LEI/company number nullable until official-source enrichment is deeper.
 
 Acceptance:
@@ -102,7 +85,7 @@ Acceptance:
 - Validation exposes confidence and manual override status.
 - No existing recommendation rows lose broker validation.
 
-### 4. Official Evidence And PIT Controls
+### 3. Official Evidence And PIT Controls
 
 Why it matters: Catalyst and rerating strategies rely on official timestamps.
 
@@ -116,6 +99,23 @@ Acceptance:
 
 - Recommendation evidence can show official source freshness.
 - Backtests do not consume events before availability.
+
+### 4. API And Release Readiness
+
+Why it matters: The operator needs paper acceptance evidence and later agents
+need implementation history.
+
+Recommended slice:
+
+- Add smoke/regression coverage around new report and paper-cycle endpoints.
+- Ensure migration naming and API docs are discoverable.
+- Keep CHANGELOG/TODO and coordination docs synchronized after each batch.
+
+Acceptance:
+
+- Fast offline checks protect report, paper persistence, and no-live-submit
+  guardrails.
+- Documentation tells the next operator what is safe to try locally.
 
 ### 5. Management Status API
 

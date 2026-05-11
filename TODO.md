@@ -7,9 +7,10 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 
 | Priority | Task | Owner | Branch/worktree | Status |
 | --- | --- | --- | --- | --- |
-| P1 | Source freshness diagnostics | Pascal | `codex/source-freshness-diagnostics` | Active in isolated worktree |
-| P1 | Operator report export shell | Kant | `codex/operator-report-shell` | Active in isolated worktree |
-| P1 | Paper intent and simulated fill persistence | Feynman | `codex/paper-intent-persistence` | Active in isolated worktree |
+| P1 | Paper/report integration | Next worker | `codex/paper-report-integration` | Queued |
+| P1 | Paper cycle review surface | Next worker | `codex/paper-cycle-review` | Queued |
+| P1 | Identity diagnostics | Next worker | `codex/identity-diagnostics` | Queued |
+| P1 | API/release readiness QA | Next worker | `codex/api-release-readiness` | Queued |
 
 ## Completed This Cycle
 
@@ -21,14 +22,16 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 | MVP QA and route guardrails | `1f2e6ea` | Added offline regression coverage for preview-only and no-live-submit guardrails. |
 | Management diagnostics phase 2 | `2d6b47d` | Expanded the read-only Management page into an operational status surface. |
 | Pilot paper workflow shell | `1e1e5c7` | Added a side-effect-free pilot paper workflow summary service, API route, and Preview page display. |
+| Source freshness diagnostics | `2ad537e` | Added dashboard source/cache age helpers and source freshness displays. |
+| Paper intent and simulated fill persistence | `98b6754` | Added paper-cycle, paper-intent, and simulated-fill persistence with deterministic IDs. |
+| Operator report export shell | `261c92a` | Added side-effect-free report service and API route for MVP evidence summaries. |
 
 ## Next Queue
 
 | Priority | Task | Why next |
 | --- | --- | --- |
-| P1 | Add provider/source freshness to recommendation and management surfaces | Improves operator trust before deeper paper or live work. |
-| P1 | Persist paper order intents and simulated fills | Required before any credible micro-live readiness review. |
-| P1 | Add report export shell | Turns preview/research/paper summaries into auditable pilot evidence. |
+| P1 | Connect operator reports to persisted paper cycles | Report shell landed before paper persistence integration, so it needs a small follow-up. |
+| P1 | Add paper cycle review surface | Operators need a clear way to inspect saved paper evidence before reconciliation. |
 | P1 | Add identity mapping slice for broker ticker, research symbol, and ISIN | Reduces the main instrument mismatch risk. |
 | P2 | Add dashboard smoke/visual QA notes for Management, Recommendations, and Preview | Catches Streamlit rendering regressions outside pure unit tests. |
 

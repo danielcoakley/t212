@@ -23,6 +23,13 @@ All notable project changes should be recorded here.
   broker read-only state, live guardrails, and next safe action diagnostics.
 - Added a schema-light pilot paper workflow summary service, API route, and
   Preview page display for expected-vs-simulated paper evidence.
+- Added source freshness diagnostics for dashboard cache/source age and provider
+  caveats on Management and Recommendations surfaces.
+- Added durable paper-cycle persistence tables, deterministic paper intent and
+  simulated fill IDs, and explicit save/reload paper-cycle API routes.
+- Added a side-effect-free operator report service and read-only API route for
+  account, recommendation, research, preview, pilot-paper, and management
+  evidence summaries.
 
 ### Fixed
 
@@ -33,7 +40,6 @@ All notable project changes should be recorded here.
 
 ### Next
 
-- Provider/source freshness visibility.
-- Paper order intent and simulated fill persistence.
-- Operator report export shell.
+- Connect operator reports to persisted paper cycles.
+- Add paper cycle review surface.
 - Instrument identity mapping for broker ticker, research symbol, and ISIN.
