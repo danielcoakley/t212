@@ -225,6 +225,118 @@ def render_recommendation_table(frame: pd.DataFrame) -> None:
     )
 
 
+def consolidated_recommendation_frame(
+    response: RecommendationsResponse,
+    handoff: RecommendationHandoffResponse,
+    instrument_validation: InstrumentValidationResponse,
+) -> pd.DataFrame:
+    """Return the MVP recommendation queue with evidence and gate status in one table."""
+
+    base = recommendation_frame(response)
+    evidence = recommendation_evidence_frame(response)
+    handoff_rows = handoff_frame(handoff)
+    instrument_rows = instrument_validation_frame(instrument_validation)
+    if base.empty:
+        return base
+    merged = base.merge(
+        evidence.drop(columns=["source", "action", "warnings"], errors="ignore"),
+        on="research_symbol",
+        how="left",
+    )
+    merged = merged.merge(
+        handoff_rows[
+            [
+                "research_symbol",
+                "preview_action",
+                "handoff_status",
+                "broker_ticker",
+                "research_review_status",
+                "eligible_for_preview",
+                "blockers",
+                "next_step",
+            ]
+        ],
+        on="research_symbol",
+        how="left",
+    )
+    merged = merged.merge(
+        instrument_rows[["research_symbol", "status", "isin", "currency", "asset_type"]],
+        on="research_symbol",
+        how="left",
+    )
+    merged = merged.rename(
+        columns={
+            "status": "broker_validation",
+            "blockers": "preview_blockers",
+            "eligible_for_preview": "preview_eligible",
+        }
+    )
+    columns = [
+        "research_symbol",
+        "name",
+        "source",
+        "action",
+        "composite",
+        "fundamental",
+        "technical",
+        "sentiment",
+        "catalysts",
+        "broker_validation",
+        "broker_ticker",
+        "research_review_status",
+        "preview_eligible",
+        "preview_blockers",
+        "next_step",
+        "trailing_pe",
+        "forward_pe",
+        "price_to_book",
+        "dividend_yield",
+        "rsi14",
+        "momentum_12m",
+        "warnings",
+        "rationale",
+    ]
+    return merged[[column for column in columns if column in merged.columns]]
+
+
+def render_consolidated_recommendation_table(frame: pd.DataFrame) -> None:
+    """Render the single MVP recommendation queue."""
+
+    if frame.empty:
+        st.info("No recommendation rows are available.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "research_symbol": st.column_config.TextColumn("Symbol"),
+            "name": st.column_config.TextColumn("Name"),
+            "source": st.column_config.TextColumn("Source"),
+            "action": st.column_config.TextColumn("Action"),
+            "composite": st.column_config.NumberColumn("Composite", format="%.2f"),
+            "fundamental": st.column_config.NumberColumn("Fundamental", format="%.2f"),
+            "technical": st.column_config.NumberColumn("Technical", format="%.2f"),
+            "sentiment": st.column_config.NumberColumn("Sentiment", format="%.2f"),
+            "catalysts": st.column_config.NumberColumn("Catalysts", format="%.2f"),
+            "broker_validation": st.column_config.TextColumn("Broker check"),
+            "broker_ticker": st.column_config.TextColumn("T212 ticker"),
+            "research_review_status": st.column_config.TextColumn("Research gate"),
+            "preview_eligible": st.column_config.CheckboxColumn("Preview"),
+            "preview_blockers": st.column_config.TextColumn("Blockers"),
+            "next_step": st.column_config.TextColumn("Next action"),
+            "trailing_pe": st.column_config.NumberColumn("P/E", format="%.2f"),
+            "forward_pe": st.column_config.NumberColumn("Fwd P/E", format="%.2f"),
+            "price_to_book": st.column_config.NumberColumn("P/B", format="%.2f"),
+            "dividend_yield": st.column_config.NumberColumn("Yield", format="%.2%"),
+            "rsi14": st.column_config.NumberColumn("RSI14", format="%.1f"),
+            "momentum_12m": st.column_config.NumberColumn("12m mom.", format="%.2%"),
+            "warnings": st.column_config.TextColumn("Warnings"),
+            "rationale": st.column_config.TextColumn("Rationale"),
+        },
+    )
+
+
 def handoff_frame(response: RecommendationHandoffResponse) -> pd.DataFrame:
     """Flatten recommendation hand-off rows for dashboard display."""
 
@@ -242,6 +354,10 @@ def handoff_frame(response: RecommendationHandoffResponse) -> pd.DataFrame:
                 "composite_score": payload["composite_score"],
                 "instrument_validation_status": payload.get("instrument_validation_status"),
                 "broker_ticker": payload.get("broker_ticker"),
+                "deep_research_required": payload.get("deep_research_required"),
+                "research_review_status": payload.get("research_review_status"),
+                "research_review_id": payload.get("research_review_id"),
+                "eligible_for_preview": payload.get("eligible_for_preview"),
                 "reason": payload["reason"],
                 "blockers": ", ".join(payload.get("blockers") or []),
                 "next_step": payload["next_step"],
@@ -323,6 +439,10 @@ def render_handoff_table(frame: pd.DataFrame) -> None:
             "composite_score": st.column_config.NumberColumn("Composite", format="%.2f"),
             "instrument_validation_status": st.column_config.TextColumn("Broker validation"),
             "broker_ticker": st.column_config.TextColumn("Broker ticker"),
+            "deep_research_required": st.column_config.CheckboxColumn("Deep research"),
+            "research_review_status": st.column_config.TextColumn("Research status"),
+            "research_review_id": st.column_config.TextColumn("Research review"),
+            "eligible_for_preview": st.column_config.CheckboxColumn("Preview eligible"),
             "reason": st.column_config.TextColumn("Reason"),
             "blockers": st.column_config.TextColumn("Blockers"),
             "next_step": st.column_config.TextColumn("Next step"),

@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from isa_system.api.deps import ControlState, get_state
 from isa_system.api.schemas import RebalancePreviewRequest, SubmitRequest
@@ -12,15 +13,31 @@ from isa_system.domain.enums import RuntimeMode
 from isa_system.domain.models import TargetWeight
 from isa_system.portfolio.costs import CostModel
 from isa_system.portfolio.rebalancer import build_rebalance_plan
+from isa_system.services.deep_research import latest_deep_research_reviews
+from isa_system.services.instrument_validation import validate_recommendation_instruments
+from isa_system.services.market_scan import load_broker_market_scan_universe
 from isa_system.services.paper_simulation import PaperSimulationSnapshot, simulate_paper_fills
 from isa_system.services.portfolio_state import load_trading212_portfolio
 from isa_system.services.rebalance_preview import (
     RebalancePreviewSnapshot,
     build_preview_from_holdings,
 )
+from isa_system.services.recommendation_handoff import build_recommendation_handoff
+from isa_system.services.recommendation_preview import (
+    RecommendationPreviewResponse,
+    build_preview_from_recommendation_handoff,
+)
+from isa_system.services.recommendations import build_recommendations
 from isa_system.services.valuation import value_current_holdings
 
 router = APIRouter()
+
+
+class RecommendationsPreviewRequest(BaseModel):
+    """Selected recommendation rows to preview size."""
+
+    symbols: list[str] = Field(min_length=1)
+    total_equity_gbp: float | None = Field(default=None, gt=0)
 
 
 @router.post("/rebalances/preview")
@@ -56,6 +73,44 @@ def live_preview() -> RebalancePreviewSnapshot:
     snapshot = load_trading212_portfolio()
     valuation = value_current_holdings(snapshot)
     return build_preview_from_holdings(snapshot, valuation)
+
+
+@router.post(
+    "/rebalances/from-recommendations/preview",
+    response_model=RecommendationPreviewResponse,
+)
+def preview_from_recommendations(
+    request: RecommendationsPreviewRequest,
+) -> RecommendationPreviewResponse:
+    """Build preview-only sizing from selected research-gated recommendations."""
+
+    snapshot = load_trading212_portfolio()
+    universe = load_broker_market_scan_universe()
+    recommendations = build_recommendations(
+        snapshot,
+        candidates=[],
+        include_default_candidates=True,
+        default_candidates=universe.symbols,
+        include_llm_rationale=False,
+    )
+    validation = validate_recommendation_instruments(recommendations)
+    reviews = latest_deep_research_reviews(
+        [item.candidate.research_symbol for item in recommendations.recommendations]
+    )
+    handoff = build_recommendation_handoff(
+        recommendations,
+        instrument_validation=validation,
+        research_reviews=reviews,
+    )
+    equity = (
+        Decimal(str(request.total_equity_gbp)) if request.total_equity_gbp is not None else None
+    )
+    return build_preview_from_recommendation_handoff(
+        selected_symbols=request.symbols,
+        snapshot=snapshot,
+        handoff=handoff,
+        total_equity_gbp=equity,
+    )
 
 
 @router.get("/rebalances/paper-simulation", response_model=PaperSimulationSnapshot)

@@ -89,7 +89,7 @@ def test_recommendations_endpoint_is_offline_safe(monkeypatch: pytest.MonkeyPatc
     assert response.status_code == 200
     payload = response.json()
     assert payload["provider"] == "static"
-    assert payload["warnings"] == ["Trading 212 credentials are not configured."]
+    assert "Trading 212 credentials are not configured." in payload["warnings"]
     symbols = {item["candidate"]["research_symbol"] for item in payload["recommendations"]}
     assert symbols == {"AAPL", "TSCO.L"}
     assert {item["action"] for item in payload["recommendations"]} <= {

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-from isa_system.services.market_scan import load_market_scan_universe
+from isa_system.services.market_scan import load_broker_market_scan_universe
+from isa_system.services.market_screener import MarketScreenerResponse, build_market_screener
 from isa_system.services.paper_simulation import PaperSimulationSnapshot, simulate_paper_fills
 from isa_system.services.portfolio_state import (
     BrokerPortfolioSnapshot,
@@ -41,6 +42,7 @@ def refresh_broker_snapshot() -> BrokerPortfolioSnapshot:
     _rebalance_preview_payload.clear()
     _paper_simulation_payload.clear()
     _recommendations_payload.clear()
+    _market_screener_payload.clear()
     return broker_snapshot()
 
 
@@ -113,7 +115,7 @@ def _recommendations_payload(
     """Return cached review-only recommendations."""
 
     snapshot = BrokerPortfolioSnapshot.model_validate(broker_payload)
-    scan_universe = load_market_scan_universe()
+    scan_universe = load_broker_market_scan_universe()
     return build_recommendations(
         snapshot,
         candidates=candidates,
@@ -141,3 +143,16 @@ def recommendations(
             include_llm,
         )
     )
+
+
+@st.cache_data(ttl=900, show_spinner="Screening the Trading 212 market universe...")
+def _market_screener_payload(max_loaded: int, top_n: int) -> dict[str, object]:
+    """Return cached broad-market screener rows."""
+
+    return build_market_screener(max_loaded=max_loaded, top_n=top_n).model_dump(mode="json")
+
+
+def market_screener(*, max_loaded: int = 250, top_n: int = 50) -> MarketScreenerResponse:
+    """Return the current broad-market screener."""
+
+    return MarketScreenerResponse.model_validate(_market_screener_payload(max_loaded, top_n))

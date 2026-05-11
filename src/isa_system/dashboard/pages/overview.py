@@ -35,6 +35,16 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
         render_warnings(snapshot)
     elif snapshot.status in {"live", "demo"}:
         st.success("Trading 212 portfolio state loaded through read-only API calls.")
+    st.subheader("Next Action")
+    if snapshot.status in {"live", "demo"}:
+        st.info(
+            "Review the recommendation queue, run deep research for any BUY/add candidate, "
+            "then generate a preview-only rebalance plan for eligible rows."
+        )
+    else:
+        st.warning(
+            "Connect Trading 212 read-only metadata before relying on live portfolio context."
+        )
 
     st.subheader("Account Context")
     chart_cols = st.columns([1, 1])

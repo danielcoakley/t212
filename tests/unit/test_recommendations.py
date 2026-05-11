@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot, BrokerPosition
 from isa_system.services.recommendations import (
     RecommendationAction,
@@ -16,6 +18,7 @@ from isa_system.services.valuation import (
     UpcomingEvent,
     ValuationMetrics,
 )
+from isa_system.settings import Settings
 
 
 def test_recommendations_cover_holdings_and_default_market_scan_offline() -> None:
@@ -142,8 +145,15 @@ def test_recommendations_block_near_catalyst_blackout() -> None:
     assert msft.scores.catalysts.label == "blackout"
 
 
-def test_recommendations_can_attach_deterministic_llm_fallback() -> None:
+def test_recommendations_can_attach_deterministic_llm_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Optional LLM rationale degrades safely when no OpenAI key is configured."""
+
+    monkeypatch.setattr(
+        "isa_system.services.llm_rationale.get_settings",
+        lambda: Settings(openai_api_key=None),
+    )
 
     response = build_recommendations_from_static_data(
         _snapshot(),

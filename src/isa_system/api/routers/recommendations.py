@@ -6,11 +6,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
+from isa_system.services.deep_research import latest_deep_research_reviews
 from isa_system.services.instrument_validation import (
     InstrumentValidationResponse,
     validate_recommendation_instruments,
 )
-from isa_system.services.market_scan import MarketScanUniverse, load_market_scan_universe
+from isa_system.services.market_scan import (
+    MarketScanUniverse,
+    load_broker_market_scan_universe,
+)
+from isa_system.services.market_screener import MarketScreenerResponse, build_market_screener
 from isa_system.services.portfolio_state import load_trading212_portfolio
 from isa_system.services.recommendation_handoff import (
     RecommendationHandoffResponse,
@@ -44,7 +49,7 @@ def recommendations(
     """Return review-only trade recommendations for holdings and market candidates."""
 
     snapshot = load_trading212_portfolio()
-    scan_universe = load_market_scan_universe()
+    scan_universe = load_broker_market_scan_universe()
     response = build_recommendations(
         snapshot,
         candidates=candidates,
@@ -60,7 +65,23 @@ def recommendations(
 def scan_universe() -> MarketScanUniverse:
     """Return the configured wider-market scan universe."""
 
-    return load_market_scan_universe()
+    return load_broker_market_scan_universe()
+
+
+@router.get("/screener", response_model=MarketScreenerResponse)
+def screener(
+    max_loaded: Annotated[
+        int,
+        Query(ge=1, le=1000, description="Maximum broker instruments to load into the scan."),
+    ] = 250,
+    top_n: Annotated[
+        int,
+        Query(ge=1, le=200, description="Maximum screened rows to return."),
+    ] = 50,
+) -> MarketScreenerResponse:
+    """Return the current broad-market screener rows."""
+
+    return build_market_screener(max_loaded=max_loaded, top_n=top_n)
 
 
 def _recommendations_for_validation(
@@ -69,7 +90,7 @@ def _recommendations_for_validation(
     """Build recommendations using the configured scan universe."""
 
     snapshot = load_trading212_portfolio()
-    universe = load_market_scan_universe()
+    universe = load_broker_market_scan_universe()
     return build_recommendations(
         snapshot,
         candidates=candidates,
@@ -99,7 +120,14 @@ def recommendation_handoff(
 
     response = _recommendations_for_validation(candidates, include_defaults)
     instrument_validation = validate_recommendation_instruments(response)
-    return build_recommendation_handoff(response, instrument_validation=instrument_validation)
+    reviews = latest_deep_research_reviews(
+        [item.candidate.research_symbol for item in response.recommendations]
+    )
+    return build_recommendation_handoff(
+        response,
+        instrument_validation=instrument_validation,
+        research_reviews=reviews,
+    )
 
 
 @router.get("/instrument-validation", response_model=InstrumentValidationResponse)

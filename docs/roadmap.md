@@ -1,78 +1,82 @@
 # Roadmap
 
-This roadmap maps the original ISA trading app requirements into delivery
-milestones. The system stays local-first, long-only, ISA-aware, and cautious:
-live broker access is used for read-only context until paper workflows,
-point-in-time data checks, risk controls, and operator reviews are mature.
-The recommendation MVP adds review-only action prompts across current holdings
-and wider-market candidates, plus an explicit hand-off status that shows what
-can move toward preview review and what still needs validation. It is not an
-execution feature.
+This roadmap realigns the starter repository with the original brief and the
+research report at `C:\Users\DanielCoakley\Downloads\deep-research-report.md`.
+The product direction is a local, Codex-assisted, long-only, ISA-safe research
+and preview system: daily bars, broad-market screening, point-in-time evidence,
+manual review, paper/manual approval, and guarded live controls.
+
+The MVP is not an autonomous trading bot. It is a screener and review cockpit
+that can generate preview-only sizing after deterministic gates and a deep
+research assessment pass.
 
 ## Status Key
 
 | Status | Meaning |
 | --- | --- |
-| Done | Implemented in the starter and covered by existing smoke, unit, integration, or documentation checks where applicable. |
-| In progress | Partly implemented, visible in the app or API, and needing richer behaviour or validation. |
-| Planned | Required by the product brief, but still roadmap-level. |
-| Guarded | Deliberately blocked until explicit human arming, reconciliation, and runbook checks are complete. |
+| Done | Implemented in the starter and covered by tests or smoke checks where practical. |
+| In progress | Visible in code, API, or dashboard, but still needs depth, validation, or operator polish. |
+| Planned | Required by the original intent, but not yet a reliable product slice. |
+| Guarded | Intentionally blocked until paper evidence, reconciliation, and explicit human controls pass. |
+
+## MVP Action Plan
+
+| Priority | Milestone | End-user result | Status |
+| --- | --- | --- | --- |
+| P0 | Simplify UI to three primary screens | Operator sees Overview, Recommendations, and Research Review instead of repeated tabs and duplicate tables. | Done |
+| P0 | Use Trading 212 instrument metadata as broad scan seed | Recommendations can scan a broker-derived candidate universe, capped by config, with YAML fallback when metadata is unavailable. | In progress |
+| P0 | Add consolidated recommendation queue | Holdings and screener candidates appear in one table with action, score, broker validation, blockers, research status, and preview eligibility. | Done |
+| P0 | Add deep research gate | BUY/add rows require a persisted, non-expired OpenAI-backed `RESEARCH_PASSED` review before preview sizing. | In progress |
+| P0 | Add recommendation-to-preview route | Selected eligible recommendations produce preview-only sizing, notional, costs, warnings, and blockers without submitting orders. | In progress |
+| P1 | Add paper reconciliation loop | Paper fills are persisted, reconciled, and compared with expected preview rows. | Planned |
+| P1 | Expand official point-in-time evidence | SEC, Companies House, LSE RNS, FCA NSM, and FRED evidence drives event validation and PIT factor joins. | Planned |
+| P2 | Guarded micro-live readiness | Live submission remains disabled unless arming, kill switch, idempotency, reconciliation, and operator runbook checks all pass. | Guarded |
 
 ## Requirement Status
 
-| Required functionality | Current status | Evidence and next step |
+| Required functionality | Current status | Next action |
 | --- | --- | --- |
-| Live read-only broker integration | Done | Trading 212 account summary and positions can be loaded through read-only GET calls for dashboard and analytics context. Keep order submission disabled by default. |
-| Portfolio analytics | Done, then expand | Current analytics cover cash, invested value, concentration, currency exposure, top positions, and unrealised P/L where supplied. Next: valuation overlays, sleeve drift, drawdown, and benchmark context. |
-| Recommendation MVP | Done, then expand | A review-only action queue scans current holdings and a config-backed wider-market universe using valuation, technical, sentiment/news, and catalyst evidence. It includes deterministic rationale, optional OpenAI/LLM rationale, blockers, Trading 212 instrument metadata validation, and a rebalance hand-off status that prevents market-scan buys from becoming preview targets until broker instrument, ISA, liquidity, and official-source validation are complete. |
-| Dashboard pages | In progress | Overview, Holdings, Valuation, Catalysts, Rebalance, Factors, and Audit tabs now render live or local context. Next: paper workflow, source freshness timelines, and deeper official-source validation. |
-| Point-in-time official data | Planned | Architecture names SEC EDGAR, Companies House, LSE RNS, FCA NSM, and FRED as validation or macro layers. Next: ingestion adapters, retrieved-at metadata, PIT joins, and tests that reject look-ahead data. |
-| Factors and rankings | In progress | Quality, value, momentum, dividend, sector normalisation, composite scoring, and versioned strategy configs are scaffolded. Next: official timestamp alignment, missing-data policy, peer/sector valuation factors, and attribution views. |
-| Risk and rebalancing | In progress | Risk checks, cost-aware preview concepts, SDRT/PTM/FX notes, idempotency, a preview-only sleeve target table, and local paper-fill simulation exist. Next: persisted paper workflow, event veto integration, rebalance audit records, and operator approval queue. |
-| Paper/live controls | Guarded | Preview and paper modes are the operational default; live arming is explicit and live submit is blocked unless controls pass. Next: paper fill reconciliation, kill-switch drill evidence, duplicate-order soak tests, and micro-live readiness review. |
-| API and dashboard control plane | In progress | FastAPI health, mode, rebalance, metrics, portfolio, valuation, and audit routes exist, with a Streamlit operator dashboard. Next: typed run-control, source freshness, and paper-submit endpoints consumed by dashboard pages. |
-| Tests and documentation | Done, then expand | Unit, integration, smoke, docs, CI, runbook, architecture, data source, and ISA notes exist. Next: PIT provider tests, dashboard route tests, paper/live control tests, valuation tests, and operator acceptance docs. |
+| Live read-only Trading 212 portfolio | Done | Keep order endpoints guarded; improve metadata caching and diagnostics. |
+| Broad-market screener | In progress | Improve T212 universe filtering, liquidity evidence, stale-data flags, and top-candidate ranking. |
+| Recommendation MVP | Done, then expand | Add source freshness badges, rank changes, and official-source evidence alongside convenience metrics. |
+| Deep research assessment | In progress | Add richer evidence packets, expiry policy controls, and review comparison over time. |
+| Valuation and technical context | In progress | Strengthen factor definitions, peer/sector context, and valuation scenarios. |
+| Sentiment and news | Planned | Keep social feeds disabled by default; prioritise official announcements, PDMR dealing, and short disclosures. |
+| Catalysts and event vetoes | In progress | Tie UK RNS/NSM and SEC/Companies House event records into no-buy windows. |
+| Point-in-time correctness | In progress | Expand `available_at_utc` joins and tests across fundamentals and events. |
+| Rebalance preview | In progress | Accept selected research-passed candidates, estimate costs, and show sleeve/cash impact. |
+| Paper trading | Planned | Persist paper orders, fills, reconciliation, and audit events. |
+| Live trading | Guarded | Remain blocked until paper acceptance evidence and explicit user request. |
 
 ## Research Report Alignment
 
-The research report at `C:\Users\DanielCoakley\Downloads\deep-research-report.md`
-sets the practical direction for the next few days of buildout:
-
 | Finding from research report | Roadmap implication |
 | --- | --- |
-| V1 should be daily-bar, long-only, catalyst-aware, and not intraday/HFT. | Keep new features on EOD bars, official event metadata, and operator review workflows before any live action. |
-| Trading 212 is the account, execution, accessible-universe, and reconciliation source of truth, not the historical OHLC source. | Continue read-only broker integration; use convenience feeds only for research overlays and external EOD history. |
-| The algorithmic sleeve should be configurable from 0% to 20% of the ISA. | Build sleeve drift, sleeve drawdown, and target-weight controls as percentages, never account-size assumptions. |
-| Highest-confidence signals are quality/profitability, medium-term momentum, post-event drift, and rerating supported by official disclosures. | Prioritise quality-momentum factors, event vetoes, PDMR/short-disclosure sentiment, and explainable thesis records. |
-| Identifier mismatch is a core operational risk. | Add an instrument/issuer crosswalk that links Trading 212 ticker, ISIN, FIGI where available, LEI, company number, CIK, and provider symbols. The first visible slice validates recommendation candidates against Trading 212 instrument metadata and flags ambiguous mappings. |
-| UK frictions matter: SDRT, PTM levy, spreads, and Trading 212 FX fee. | Extend preview/backtest cost models so gross alpha and net alpha are shown separately. |
-| FCA short-selling disclosure semantics change from 13 July 2026. | Version official-feed parsers and rules by effective date, with tests around the transition. |
-| Sentiment should start with official announcements, PDMR dealing, and short disclosures rather than social feeds. | Keep Reddit/X optional and low-weight; build official-source sentiment and event tags first. |
-| Recommendations should be explainable but not autonomous. | Build deterministic review-only actions first, then optionally attach OpenAI/LLM rationale when configured; risk checks and event vetoes always remain authoritative. |
-| Immediate next vertical slice is broker auth, instrument universe, free EOD provider, FCA NSM, one quality-momentum strategy, one backtest page, one overview dashboard, and paper loop. | Use this as the delivery order for the next implementation passes. |
+| V1 should be daily-bar, long-only, and catalyst-aware. | Keep the MVP on EOD evidence, no leverage, no shorts, no derivatives, no intraday execution logic. |
+| Trading 212 is account, execution, accessible-universe, and reconciliation source of truth. | Use `/equity/metadata/instruments` to seed the scan universe, while using convenience feeds only for research bars and enrichment. |
+| Identifier mismatch is a core operational risk. | Keep broker ticker, research symbol, ISIN, and source identifiers visible in recommendation and review records. |
+| Recommendations should be explainable but not autonomous. | Continue deterministic scoring plus OpenAI thesis validation, with risk checks and event vetoes remaining authoritative. |
+| The algo sleeve should be configurable up to 20%. | Keep preview sizing percentage-based and avoid account-size assumptions. |
+| UK frictions matter. | Show SDRT, FX, slippage, and spread assumptions in preview and backtest outputs. |
+| Official disclosures should be the truth layer. | Use SEC, Companies House, LSE RNS, FCA NSM, and FRED timestamps for PIT availability and event validation. |
 
-## Near-Term Milestones
+## Public Interface Milestones
 
-| Priority | Milestone | Owner surface | End-user result | Status |
-| --- | --- | --- | --- | --- |
-| P0 | Keep live broker integration read-only | Trading 212 adapter, portfolio API, dashboard | Operator can see current account value, cash, holdings, concentration, currency exposure, and warnings without creating orders. | Done |
-| P0 | Make valuation visible | Dashboard Valuation page, valuation API contract, docs | Operator can inspect current price, valuation multiples, source freshness, technical indicators, events, sentiment/news context, and missing-data warnings before any rebalance. | Done, then expand |
-| P0 | Strengthen portfolio analytics | Portfolio service, dashboard widgets | Account health, sleeve drift, cash buffer, largest holdings, FX exposure, and unrealised P/L are visible at a glance. | In progress |
-| P1 | Prototype recommendation MVP | Recommendations view, valuation/factor output, config-backed scan feed, broker instrument validation, hand-off status, docs | Operator can review hold/add/trim/reduce/watch actions for live holdings and wider-market candidates with rationale, blockers, freshness, Trading 212 symbol validation, and caveats; no recommendation can create an order. | Done, then expand |
-| P0 | Replace dashboard placeholders | Catalysts, Factors, Audit pages | Left-nav pages show live holdings context, provider events/news, starter attribution, audit status, and smoke artefacts instead of synthetic rows. | Done, then expand |
-| P1 | Add PIT official data backbone | Data lake, official-source adapters, provider tests | Factors and events are joined only with data known at that time, with retrieved-at and accepted-at timestamps. | Planned |
-| P1 | Complete factor attribution | Factors, configs, dashboard | Quality, value, momentum, dividend, sector-neutral adjustments, missing-data policy, and config hash are explainable per ticker. | In progress |
-| P1 | Build paper rebalance workflow | Rebalancer, paper broker, audit log | Operator can generate preview-only targets, review costs and vetoes, simulate local paper fills, and later compare expected vs persisted paper fills. | In progress |
-| P2 | Prepare controlled micro-live path | Runbook, duplicate guard, kill switch, broker reconciliation | Small live batches are possible only after explicit arming, passing checks, and human review. | Guarded |
-| P2 | Expand test and operator evidence | Tests, docs, CI artefacts | Each promotion step has repeatable tests, smoke output, and documented acceptance criteria. | In progress |
+| Endpoint | Status | Purpose |
+| --- | --- | --- |
+| `GET /recommendations/screener` | Done | Return broad-market screener rows, filters, warnings, and top candidates. |
+| `POST /research-reviews/run` | Done | Run and persist deep research for one candidate. |
+| `GET /research-reviews/latest?symbol=...` | Done | Return latest review and expiry status for a symbol. |
+| `GET /recommendations/handoff` | Done | Include research status, review id, deep-research requirement, and preview eligibility. |
+| `POST /rebalances/from-recommendations/preview` | Done | Return preview-only sizing/cost/risk rows for selected eligible recommendations. |
 
 ## Three-Month Milestone Table
 
 | Month | Milestone | Included requirements | Exit criteria |
 | --- | --- | --- | --- |
-| Month 1 | Read-only operator cockpit, recommendation MVP, and data foundations | Live read-only broker context, portfolio analytics, dashboard pages, source freshness, valuation/technical overlays, review-only recommendation actions, convenience scan prototype, review hand-off status, smoke tests | Dashboard clearly shows broker state, analytics, warnings, valuation context, recommendation caveats, hand-off blockers, and missing-data gaps; live orders remain blocked; docs define PIT data contracts. |
-| Month 2 | Point-in-time research and paper trading | Official data ingestion, factors, rankings, target weights, paper broker, risk checks, event vetoes, reviewed candidate hand-off into rebalance preview | PIT tests catch look-ahead joins; factor attribution is reviewable; paper rebalances produce auditable fills and reconciliation reports after human review. |
-| Month 3 | Micro-live readiness | Live arming, kill switch, idempotency, cost controls, API/dashboard workflow, operator runbooks | Repeated paper cycles pass; duplicate-order and kill-switch drills pass; micro-live remains guarded behind human approval and documented go/no-go checks. |
+| Month 1 | MVP cockpit and research gate | Three-screen UI, T212 read-only context, broker-universe screener, consolidated recommendations, OpenAI deep research gate, preview-only hand-off | Operator can see account health, review candidates, run deep research, and create preview-only sizing without any order path. |
+| Month 2 | Point-in-time research and paper workflow | Official-source ingestion, PIT joins, richer factors, catalyst vetoes, paper fills, reconciliation, audit replay | Paper cycles are repeatable and auditable; PIT tests reject future information. |
+| Month 3 | Guarded live readiness | Idempotency drills, kill-switch drills, broker reconciliation, runbook evidence, micro-live go/no-go checklist | Live remains disabled by default and is only considered after repeated paper acceptance evidence. |
 
 ```mermaid
 gantt
@@ -80,44 +84,35 @@ gantt
     dateFormat  YYYY-MM-DD
     axisFormat  %d %b
 
-    section Month 1 - Read-only cockpit
-    Live read-only broker integration       :done, m1a, 2026-05-10, 5d
-    Portfolio analytics expansion           :active, m1b, 2026-05-15, 10d
-    Dashboard pages and UI roadmap          :active, m1c, 2026-05-15, 12d
-    Valuation page contract and widgets     :m1d, 2026-05-20, 12d
-    Source freshness and PIT contracts      :m1e, 2026-05-25, 14d
-    Recommendation MVP prototype            :active, m1f, 2026-05-28, 10d
+    section Month 1 - MVP cockpit
+    Three-screen dashboard realignment       :done, m1a, 2026-05-11, 5d
+    T212 broker-universe screener            :active, m1b, 2026-05-12, 8d
+    Deep research gate and persistence       :active, m1c, 2026-05-13, 8d
+    Recommendation-to-preview workflow       :active, m1d, 2026-05-18, 8d
+    Dashboard visual polish and QA           :m1e, 2026-05-22, 8d
 
-    section Month 2 - Research and paper
-    Official data adapters and PIT tests    :m2a, 2026-06-08, 18d
-    Factor attribution and ranking review   :m2b, 2026-06-10, 16d
-    Risk, costs, vetoes, and target weights :m2c, 2026-06-22, 16d
-    Paper rebalance and reconciliation      :m2d, 2026-06-29, 14d
+    section Month 2 - PIT and paper
+    Official filing and event ingestion      :m2a, 2026-06-01, 16d
+    PIT factor and catalyst validation       :m2b, 2026-06-10, 14d
+    Paper fill persistence and reconciliation:m2c, 2026-06-19, 16d
+    Paper acceptance evidence                :m2d, 2026-06-30, 10d
 
     section Month 3 - Guarded live readiness
-    API/dashboard workflow hardening        :m3a, 2026-07-13, 14d
-    Duplicate guard and kill-switch drills  :m3b, 2026-07-20, 14d
-    Operator docs and acceptance evidence   :m3c, 2026-07-27, 10d
-    Micro-live go/no-go review              :milestone, m3d, 2026-08-07, 0d
+    Duplicate-order and kill-switch drills   :m3a, 2026-07-13, 12d
+    Broker reconciliation hardening          :m3b, 2026-07-20, 12d
+    Operator runbook and go/no-go pack       :m3c, 2026-07-27, 10d
+    Micro-live readiness review              :milestone, m3d, 2026-08-07, 0d
 ```
 
 ## Acceptance Notes
 
-- Live trading remains off unless the operator deliberately selects live mode,
-  arms it, clears the kill switch, passes reconciliation, and accepts a reviewed
-  batch hash.
-- Convenience feeds can support screening and enrichment, but official sources
-  and retrieved timestamps decide point-in-time availability.
-- Valuation, catalyst, and starter factor output are advisory context for review,
-  not automatic buy or sell signals.
-- Recommendation actions are review-only prompts. They may label a holding or
-  candidate as hold, add, trim, reduce, avoid, or watch, but they must not submit
-  orders or bypass the rebalance preview workflow.
-- Wider-market scans are convenience-feed prototypes for discovery. They must
-  show source caveats and must not be treated as the broker-accessible universe
-  or an official point-in-time truth layer.
-- OpenAI/LLM rationale is optional. When a key is absent the app should disable
-  or degrade the explanation layer; when present it may summarise rationale, but
-  it must not create orders, set targets, or override risk checks and event
-  vetoes.
-- All user-facing times remain Europe/London; stored timestamps remain UTC.
+- BUY/add candidates must have broker metadata validation and a non-expired
+  `RESEARCH_PASSED` deep research review before preview sizing.
+- Sell/trim candidates remain risk-reviewed but do not require a fresh deep
+  research review.
+- Deep research is a thesis validator and evidence gate, not investment advice
+  and not an order authority.
+- Convenience feeds support screening and context only. Official sources and
+  `available_at_utc` decide point-in-time availability.
+- Live submission remains guarded behind explicit arming, kill switch state,
+  duplicate-order prevention, reconciliation, and operator approval.

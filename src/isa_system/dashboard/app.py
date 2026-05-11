@@ -8,14 +8,9 @@ import streamlit as st
 
 from isa_system.dashboard.data import broker_snapshot, refresh_broker_snapshot
 from isa_system.dashboard.pages import (
-    audit_logs,
-    catalysts,
-    factor_attribution,
-    holdings,
     overview,
-    rebalance_preview,
     recommendations,
-    valuation,
+    research_review,
 )
 from isa_system.utils.time import to_london
 
@@ -28,43 +23,33 @@ def main() -> None:
     if st.sidebar.button("Refresh broker state"):
         snapshot = refresh_broker_snapshot()
     london_now = to_london(datetime.now(tz=UTC))
-    st.title("ISA System Control")
     with st.sidebar:
-        st.metric("Mode", "Preview")
+        st.title("ISA System")
+        page = st.radio(
+            "Workflow",
+            ["Overview", "Recommendations", "Research Review"],
+            index=0,
+        )
+        st.divider()
+        st.metric("Mode", "Preview only")
         st.metric("Broker", snapshot.status)
-        st.metric("Broker environment", snapshot.environment)
+        st.metric("Environment", snapshot.environment)
         st.metric("Kill switch", "Clear")
         st.caption(f"London time: {london_now:%Y-%m-%d %H:%M:%S %Z}")
         for warning in snapshot.warnings:
             st.warning(warning)
-    tabs = st.tabs(
-        [
-            "Overview",
-            "Holdings",
-            "Recommendations",
-            "Valuation",
-            "Catalysts",
-            "Rebalance",
-            "Factors",
-            "Audit",
-        ]
-    )
-    with tabs[0]:
+        with st.expander("Advanced diagnostics"):
+            st.caption(
+                "Holdings, valuation, catalyst, rebalance, factor, and audit diagnostics are "
+                "kept as support modules. The MVP front door is the three-step review workflow."
+            )
+
+    if page == "Overview":
         overview.render(snapshot)
-    with tabs[1]:
-        holdings.render(snapshot)
-    with tabs[2]:
+    elif page == "Recommendations":
         recommendations.render(snapshot)
-    with tabs[3]:
-        valuation.render(snapshot)
-    with tabs[4]:
-        catalysts.render(snapshot)
-    with tabs[5]:
-        rebalance_preview.render(snapshot)
-    with tabs[6]:
-        factor_attribution.render(snapshot)
-    with tabs[7]:
-        audit_logs.render(snapshot)
+    else:
+        research_review.render(snapshot)
 
 
 if __name__ == "__main__":

@@ -118,6 +118,12 @@ def clear_instrument_cache() -> None:
     _INSTRUMENT_CACHE_AT_UTC = None
 
 
+def load_trading212_instruments(settings: Settings | None = None) -> list[Trading212Instrument]:
+    """Load cached Trading 212 instrument metadata for read-only services."""
+
+    return _load_trading212_instruments(settings)
+
+
 def _load_trading212_instruments(settings: Settings | None) -> list[Trading212Instrument]:
     cached = _cached_instruments()
     if cached is not None:
