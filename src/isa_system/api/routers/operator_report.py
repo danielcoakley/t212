@@ -16,6 +16,7 @@ from isa_system.services.operator_report import (
     build_management_report_status,
     build_operator_report,
 )
+from isa_system.services.paper_persistence import load_paper_cycle
 from isa_system.services.pilot_workflow import build_pilot_paper_workflow
 from isa_system.services.portfolio_state import load_trading212_portfolio
 from isa_system.services.recommendation_handoff import build_recommendation_handoff
@@ -31,6 +32,7 @@ class OperatorReportRequest(BaseModel):
 
     symbols: list[str] = Field(default_factory=list)
     total_equity_gbp: float | None = Field(default=None, gt=0)
+    paper_cycle_id: str | None = Field(default=None, min_length=1)
 
 
 @router.post("", response_model=OperatorReportSummary)
@@ -62,6 +64,9 @@ def operator_report(
     )
     preview = None
     pilot_workflow = None
+    persisted_paper_cycle = (
+        load_paper_cycle(request.paper_cycle_id) if request.paper_cycle_id else None
+    )
     if request.symbols:
         equity = (
             Decimal(str(request.total_equity_gbp)) if request.total_equity_gbp is not None else None
@@ -81,5 +86,7 @@ def operator_report(
         research_reviews=research_reviews,
         preview=preview,
         pilot_workflow=pilot_workflow,
+        persisted_paper_cycle=persisted_paper_cycle,
+        requested_paper_cycle_id=request.paper_cycle_id,
         management=build_management_report_status(settings, state=state),
     )

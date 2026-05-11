@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from pydantic import SecretStr
 
+from isa_system.db.session import init_db, make_engine, make_session_factory
 from isa_system.services.deep_research import (
     DeepResearchDecision,
     DeepResearchInput,
@@ -22,7 +23,8 @@ from isa_system.services.operator_report import (
     build_management_report_status,
     build_operator_report,
 )
-from isa_system.services.pilot_workflow import build_pilot_paper_workflow
+from isa_system.services.paper_persistence import PersistedPaperCycle, persist_pilot_paper_workflow
+from isa_system.services.pilot_workflow import PilotPaperWorkflowSummary, build_pilot_paper_workflow
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
 from isa_system.services.recommendation_handoff import build_recommendation_handoff
 from isa_system.services.recommendation_preview import (
@@ -172,6 +174,60 @@ def test_operator_report_aggregates_available_mvp_evidence() -> None:
     assert "GOOD.L" in report.markdown
 
 
+def test_operator_report_includes_persisted_paper_cycle_evidence() -> None:
+    """A supplied persisted paper cycle replaces the simulated-only persistence gap."""
+
+    generated_at = _now()
+    preview = RecommendationPreviewResponse(
+        generated_at_utc=generated_at,
+        total_equity_gbp=10_000.0,
+        selected_count=1,
+        eligible_count=1,
+        estimated_total_cost_gbp=12.5,
+        rows=[
+            RecommendationPreviewRow(
+                symbol="GOOD.L",
+                research_symbol="GOOD.L",
+                broker_ticker="GOODl_EQ",
+                side="BUY",
+                eligible=True,
+                target_weight=0.04,
+                estimated_notional_gbp=400.0,
+                estimated_total_cost_gbp=12.5,
+                research_review_status="RESEARCH_PASSED",
+                rationale="Preview-only sizing.",
+            )
+        ],
+    )
+    workflow = build_pilot_paper_workflow(preview).model_copy(
+        update={"generated_at_utc": generated_at}
+    )
+    persisted = _persisted_cycle(workflow)
+
+    report = build_operator_report(
+        pilot_workflow=workflow,
+        persisted_paper_cycle=persisted,
+        as_of_utc=generated_at,
+    )
+    section = {section.key: section for section in report.sections}["pilot_paper"]
+    items = {item.label: item.value for item in section.items}
+
+    assert section.status == "available"
+    assert section.missing_data == ["paper_reconciliation"]
+    assert "paper_persistence" not in section.missing_data
+    assert items["Evidence source"] == "simulated_and_persisted_paper_cycle"
+    assert items["Paper cycle ID"] == persisted.id
+    assert items["Persistence status"] == "persisted"
+    assert items["Reconciliation status"] == "not_available"
+    assert items["Intent rows"] == 1
+    assert items["Simulated fills"] == 1
+    assert items["Total expected notional GBP"] == "400.00"
+    assert section.records[0]["paper_cycle_id"] == persisted.id
+    assert section.records[0]["simulated_fill_count"] == 1
+    assert any("not reconciled" in warning for warning in section.warnings)
+    assert persisted.id in report.markdown
+
+
 def test_management_report_status_never_exposes_secret_values() -> None:
     """Management report status collapses credentials into booleans only."""
 
@@ -214,6 +270,14 @@ def _review(symbol: str, generated_at: datetime) -> DeepResearchReview:
             technicals={},
         ),
     )
+
+
+def _persisted_cycle(workflow: PilotPaperWorkflowSummary) -> PersistedPaperCycle:
+    engine = make_engine("sqlite:///:memory:")
+    init_db(engine)
+    factory = make_session_factory(engine)
+    with factory() as session:
+        return persist_pilot_paper_workflow(workflow, session=session)
 
 
 def _now() -> datetime:

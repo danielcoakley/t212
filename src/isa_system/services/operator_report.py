@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, SecretStr
 
 from isa_system.domain.enums import RuntimeMode
 from isa_system.services.deep_research import DeepResearchReview
+from isa_system.services.paper_persistence import PersistedPaperCycle
 from isa_system.services.pilot_workflow import PilotPaperWorkflowSummary
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
 from isa_system.services.recommendation_handoff import RecommendationHandoffResponse
@@ -123,6 +124,8 @@ def build_operator_report(
     research_reviews: Mapping[str, DeepResearchReview] | None = None,
     preview: RecommendationPreviewResponse | None = None,
     pilot_workflow: PilotPaperWorkflowSummary | None = None,
+    persisted_paper_cycle: PersistedPaperCycle | None = None,
+    requested_paper_cycle_id: str | None = None,
     management: OperatorManagementStatus | None = None,
     as_of_utc: datetime | None = None,
 ) -> OperatorReportSummary:
@@ -134,7 +137,12 @@ def build_operator_report(
         _recommendations_section(recommendations, handoff, as_of),
         _research_section(research_reviews, handoff, as_of),
         _preview_section(preview, as_of),
-        _pilot_paper_section(pilot_workflow, as_of),
+        _pilot_paper_section(
+            pilot_workflow,
+            persisted_paper_cycle=persisted_paper_cycle,
+            requested_paper_cycle_id=requested_paper_cycle_id,
+            as_of=as_of,
+        ),
         _management_section(management),
     ]
     status = _overall_status(sections)
@@ -445,9 +453,35 @@ def _preview_section(
 
 def _pilot_paper_section(
     workflow: PilotPaperWorkflowSummary | None,
+    *,
+    persisted_paper_cycle: PersistedPaperCycle | None,
+    requested_paper_cycle_id: str | None,
     as_of: datetime,
 ) -> OperatorReportSection:
+    if persisted_paper_cycle is not None:
+        return _persisted_paper_section(
+            persisted_paper_cycle,
+            workflow=workflow,
+            as_of=as_of,
+        )
+
     if workflow is None:
+        if requested_paper_cycle_id:
+            return _missing_section(
+                "pilot_paper",
+                "Pilot Paper",
+                (
+                    f"Requested persisted paper cycle {requested_paper_cycle_id} was not found "
+                    "and no pilot paper workflow snapshot was supplied."
+                ),
+                ["pilot_paper_workflow", f"persisted_paper_cycle:{requested_paper_cycle_id}"],
+                warnings=[
+                    (
+                        f"Requested persisted paper cycle {requested_paper_cycle_id} was not "
+                        "found; no persisted paper evidence is included."
+                    )
+                ],
+            )
         return _missing_section(
             "pilot_paper",
             "Pilot Paper",
@@ -463,6 +497,15 @@ def _pilot_paper_section(
     if status == "available":
         status = _freshness_status(generated_at, as_of)
 
+    missing_data = ["paper_persistence", "paper_reconciliation"]
+    warnings = _stale_warning(generated_at, as_of, "Pilot paper workflow") + list(workflow.warnings)
+    if requested_paper_cycle_id:
+        missing_data.insert(0, f"persisted_paper_cycle:{requested_paper_cycle_id}")
+        warnings.append(
+            f"Requested persisted paper cycle {requested_paper_cycle_id} was not found; "
+            "report includes only simulated paper workflow evidence."
+        )
+
     return OperatorReportSection(
         key="pilot_paper",
         title="Pilot Paper",
@@ -473,6 +516,7 @@ def _pilot_paper_section(
         ),
         source_generated_at_utc=generated_at,
         items=[
+            _item("Evidence source", "simulated_pilot_workflow"),
             _item("Workflow status", workflow.workflow_status, status),
             _item("Expected vs simulated", workflow.expected_vs_simulated_status),
             _item("Simulated fills", workflow.simulated_fill_count),
@@ -495,9 +539,93 @@ def _pilot_paper_section(
             }
             for row in workflow.rows
         ],
-        missing_data=["paper_persistence", "paper_reconciliation"],
-        warnings=_stale_warning(generated_at, as_of, "Pilot paper workflow")
-        + list(workflow.warnings),
+        missing_data=missing_data,
+        warnings=warnings,
+    )
+
+
+def _persisted_paper_section(
+    cycle: PersistedPaperCycle,
+    *,
+    workflow: PilotPaperWorkflowSummary | None,
+    as_of: datetime,
+) -> OperatorReportSection:
+    generated_at = require_utc(cycle.generated_at_utc)
+    status = _workflow_status(cycle.workflow_status)
+    if status == "available":
+        status = _freshness_status(generated_at, as_of)
+
+    mismatch_warnings = _paper_cycle_mismatch_warnings(cycle, workflow)
+    if mismatch_warnings and status == "available":
+        status = "needs_attention"
+
+    reconciliation_missing = cycle.reconciliation_status != "reconciled"
+    missing_data = ["paper_reconciliation"] if reconciliation_missing else []
+    warnings = (
+        _stale_warning(generated_at, as_of, "Persisted paper cycle")
+        + list(cycle.warnings)
+        + mismatch_warnings
+    )
+    if reconciliation_missing:
+        warnings.append(
+            "Persisted paper cycle is not reconciled against broker execution evidence."
+        )
+
+    evidence_source = (
+        "simulated_and_persisted_paper_cycle" if workflow is not None else "persisted_paper_cycle"
+    )
+    return OperatorReportSection(
+        key="pilot_paper",
+        title="Pilot Paper",
+        status=status,
+        summary=(
+            f"Persisted paper cycle {cycle.id} is {cycle.workflow_status}; "
+            f"{len(cycle.intents)} intent row(s), "
+            f"{cycle.simulated_fill_count} simulated fill row(s)."
+        ),
+        source_generated_at_utc=generated_at,
+        items=[
+            _item("Evidence source", evidence_source),
+            _item("Paper cycle ID", cycle.id, "available"),
+            _item("Workflow status", cycle.workflow_status, status),
+            _item("Expected vs simulated", cycle.expected_vs_simulated_status),
+            _item("Selected rows", cycle.selected_count),
+            _item("Preview eligible rows", cycle.preview_eligible_count),
+            _item("Intent rows", len(cycle.intents)),
+            _item("Simulated fills", cycle.simulated_fill_count),
+            _item("Persistence status", cycle.persistence_status, "available"),
+            _item(
+                "Reconciliation status",
+                cycle.reconciliation_status,
+                "missing" if reconciliation_missing else "available",
+            ),
+            _item("Persisted at UTC", _iso(cycle.persisted_at_utc)),
+            _item("Total expected notional GBP", str(cycle.total_expected_notional_gbp)),
+            _item("Total simulated notional GBP", str(cycle.total_simulated_notional_gbp)),
+            _item("Total simulated fees GBP", str(cycle.total_simulated_fees_gbp)),
+            _item("Preview source hash", cycle.preview_source_hash),
+            _item("Simulation hash", cycle.simulation_hash),
+        ],
+        records=[
+            {
+                "paper_cycle_id": intent.paper_cycle_id,
+                "intent_id": intent.id,
+                "symbol": intent.symbol,
+                "research_symbol": intent.research_symbol,
+                "side": intent.side,
+                "preview_eligible": intent.preview_eligible,
+                "expected_notional_gbp": str(intent.expected_notional_gbp),
+                "expected_fees_gbp": str(intent.expected_fees_gbp),
+                "simulated_status": intent.simulated_status,
+                "expected_vs_simulated_status": intent.expected_vs_simulated_status,
+                "simulated_fill_count": _fill_count_for_intent(cycle, intent.id),
+                "blockers": _join(intent.blockers),
+                "warnings": _join(intent.warnings),
+            }
+            for intent in cycle.intents
+        ],
+        missing_data=missing_data,
+        warnings=warnings,
     )
 
 
@@ -636,6 +764,35 @@ def _workflow_status(workflow_status: str) -> ReportStatus:
     if workflow_status == "blocked_before_paper":
         return "blocked"
     return "partial"
+
+
+def _paper_cycle_mismatch_warnings(
+    cycle: PersistedPaperCycle,
+    workflow: PilotPaperWorkflowSummary | None,
+) -> list[str]:
+    if workflow is None:
+        return []
+
+    warnings: list[str] = []
+    if cycle.preview_source_hash != workflow.preview_source_hash:
+        warnings.append(
+            "Persisted paper cycle preview source hash differs from the supplied simulated "
+            "workflow."
+        )
+    if cycle.simulation_hash != workflow.simulation_hash:
+        warnings.append(
+            "Persisted paper cycle simulation hash differs from the supplied simulated workflow."
+        )
+    if cycle.simulated_fill_count != workflow.simulated_fill_count:
+        warnings.append(
+            "Persisted paper cycle simulated fill count differs from the supplied simulated "
+            "workflow."
+        )
+    return warnings
+
+
+def _fill_count_for_intent(cycle: PersistedPaperCycle, intent_id: str) -> int:
+    return sum(1 for fill in cycle.simulated_fills if fill.paper_intent_id == intent_id)
 
 
 def _review_is_valid_pass(review: DeepResearchReview, as_of: datetime) -> bool:

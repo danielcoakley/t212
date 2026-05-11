@@ -758,3 +758,37 @@ Integration concerns: The Preview page now imports the paper persistence read
 service and loads cycles only by operator-supplied ID. No live Trading 212
 POST/order submission path, runtime arming, DB schema, or recommendation
 service semantics changed.
+
+### 2026-05-11 - Paper/report integration
+
+What changed: Connected the operator report shell to supplied persisted paper
+cycles. Reports can now include a loaded paper-cycle ID, persistence status,
+intent/fill counts, expected/simulated totals, and persisted intent records
+while still distinguishing simulated-only paper workflow evidence. Missing
+paper reconciliation remains explicit.
+
+What remains: Broker reconciliation and a dashboard paper-cycle review surface
+are still future work. Reports can surface persisted cycle evidence but do not
+make it reconciled or live-executable.
+
+Files touched:
+
+- `src/isa_system/services/operator_report.py`
+- `src/isa_system/api/routers/operator_report.py`
+- `tests/unit/test_operator_report.py`
+- `tests/integration/test_operator_report_api.py`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_operator_report.py tests/integration/test_operator_report_api.py tests/unit/test_paper_persistence.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/integration/test_mvp_realignment_api.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_operator_report.py tests/integration/test_operator_report_api.py tests/unit/test_paper_persistence.py tests/integration/test_mvp_realignment_api.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The report route only loads a requested persisted cycle;
+it does not persist paper output or mutate preview/pilot workflow endpoints.
+If a report is built with a stale or mismatched simulated workflow plus a
+persisted cycle, the paper section now warns and needs operator attention.

@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from isa_system.api.deps import STATE
 from isa_system.api.main import app
+from isa_system.db.session import init_db, make_engine, make_session_factory
 from isa_system.domain.enums import RuntimeMode
 from isa_system.services.deep_research import (
     DeepResearchDecision,
@@ -22,7 +23,8 @@ from isa_system.services.instrument_validation import (
     InstrumentValidationRow,
     InstrumentValidationStatus,
 )
-from isa_system.services.pilot_workflow import build_pilot_paper_workflow
+from isa_system.services.paper_persistence import PersistedPaperCycle, persist_pilot_paper_workflow
+from isa_system.services.pilot_workflow import PilotPaperWorkflowSummary, build_pilot_paper_workflow
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
 from isa_system.services.recommendation_handoff import build_recommendation_handoff
 from isa_system.services.recommendation_preview import (
@@ -101,6 +103,7 @@ def test_operator_report_route_returns_report_sections(
     workflow = build_pilot_paper_workflow(preview).model_copy(
         update={"generated_at_utc": generated_at}
     )
+    persisted = _persisted_cycle(workflow)
 
     STATE.mode = RuntimeMode.PREVIEW
     STATE.live_armed = False
@@ -156,6 +159,10 @@ def test_operator_report_route_returns_report_sections(
         "isa_system.api.routers.operator_report.build_pilot_paper_workflow",
         lambda preview: workflow,
     )
+    monkeypatch.setattr(
+        "isa_system.api.routers.operator_report.load_paper_cycle",
+        lambda cycle_id: persisted if cycle_id == persisted.id else None,
+    )
 
     response = TestClient(app).post(
         "/operator-report",
@@ -175,6 +182,29 @@ def test_operator_report_route_returns_report_sections(
     assert sections["management"]["status"] == "available"
     assert "Operator Report Shell" in payload["markdown"]
     assert any("never submits broker orders" in warning for warning in payload["warnings"])
+
+    persisted_response = TestClient(app).post(
+        "/operator-report",
+        json={"paper_cycle_id": persisted.id},
+    )
+
+    assert persisted_response.status_code == 200
+    persisted_payload = persisted_response.json()
+    persisted_sections = {section["key"]: section for section in persisted_payload["sections"]}
+    persisted_items = {
+        item["label"]: item["value"] for item in persisted_sections["pilot_paper"]["items"]
+    }
+    assert persisted_sections["preview"]["status"] == "missing"
+    assert persisted_sections["pilot_paper"]["missing_data"] == ["paper_reconciliation"]
+    assert persisted_items["Paper cycle ID"] == persisted.id
+    assert persisted_items["Persistence status"] == "persisted"
+    assert persisted_items["Reconciliation status"] == "not_available"
+    assert persisted_items["Intent rows"] == 1
+    assert persisted_items["Total simulated notional GBP"] == "400.00"
+    assert persisted_sections["pilot_paper"]["records"][0]["paper_cycle_id"] == persisted.id
+    assert any(
+        "not reconciled" in warning for warning in persisted_sections["pilot_paper"]["warnings"]
+    )
 
 
 def _validation(generated_at: datetime) -> InstrumentValidationResponse:
@@ -226,3 +256,11 @@ def _review(symbol: str, generated_at: datetime) -> DeepResearchReview:
             technicals={},
         ),
     )
+
+
+def _persisted_cycle(workflow: PilotPaperWorkflowSummary) -> PersistedPaperCycle:
+    engine = make_engine("sqlite:///:memory:")
+    init_db(engine)
+    factory = make_session_factory(engine)
+    with factory() as session:
+        return persist_pilot_paper_workflow(workflow, session=session)
