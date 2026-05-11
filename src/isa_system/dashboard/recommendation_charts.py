@@ -15,7 +15,10 @@ from isa_system.dashboard.cache_policy import (
     cache_timestamp_status,
     format_cache_age,
 )
-from isa_system.services.instrument_validation import InstrumentValidationResponse
+from isa_system.services.instrument_validation import (
+    InstrumentValidationResponse,
+    identity_diagnostics_rows,
+)
 from isa_system.services.recommendation_handoff import RecommendationHandoffResponse
 from isa_system.services.recommendations import RecommendationsResponse
 from isa_system.utils.time import now_utc, require_utc, to_london
@@ -134,6 +137,29 @@ def recommendation_source_freshness_rows(
             ),
         )
     return rows
+
+
+def identity_diagnostics_frame(response: InstrumentValidationResponse) -> pd.DataFrame:
+    """Return compact broker/research identity diagnostics for review surfaces."""
+
+    rows: list[dict[str, Any]] = []
+    for item in identity_diagnostics_rows(response):
+        payload = item.model_dump(mode="json")
+        rows.append(
+            {
+                "symbol": payload["symbol"],
+                "research_symbol": payload["research_symbol"],
+                "broker_ticker": payload.get("broker_ticker"),
+                "isin": payload.get("isin"),
+                "validation_status": payload["validation_status"],
+                "validation_confidence": payload["validation_confidence"],
+                "candidate_broker_tickers": ", ".join(
+                    payload.get("candidate_broker_tickers") or []
+                ),
+                "mismatch_caveats": ", ".join(payload.get("mismatch_caveats") or []),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def render_action_chart(frame: pd.DataFrame) -> None:
@@ -341,7 +367,17 @@ def consolidated_recommendation_frame(
         how="left",
     )
     merged = merged.merge(
-        instrument_rows[["research_symbol", "status", "isin", "currency", "asset_type"]],
+        instrument_rows[
+            [
+                "research_symbol",
+                "status",
+                "isin",
+                "currency",
+                "asset_type",
+                "validation_confidence",
+                "identity_caveats",
+            ]
+        ],
         on="research_symbol",
         how="left",
     )
@@ -350,6 +386,7 @@ def consolidated_recommendation_frame(
             "status": "broker_validation",
             "blockers": "preview_blockers",
             "eligible_for_preview": "preview_eligible",
+            "validation_confidence": "instrument_validation_confidence",
         }
     )
     if cache_window is not None:
@@ -371,6 +408,9 @@ def consolidated_recommendation_frame(
         "preview_action",
         "preview_eligible",
         "broker_gate",
+        "instrument_validation_confidence",
+        "isin",
+        "identity_caveats",
         "research_gate",
         "preview_blockers",
         "source_caveats",
@@ -418,6 +458,11 @@ def render_consolidated_recommendation_table(frame: pd.DataFrame) -> None:
             "preview_action": st.column_config.TextColumn("Preview side"),
             "preview_eligible": st.column_config.CheckboxColumn("Preview"),
             "broker_gate": st.column_config.TextColumn("Broker gate"),
+            "instrument_validation_confidence": st.column_config.TextColumn(
+                "Validation confidence"
+            ),
+            "isin": st.column_config.TextColumn("ISIN"),
+            "identity_caveats": st.column_config.TextColumn("Identity caveats"),
             "research_gate": st.column_config.TextColumn("Research gate"),
             "preview_blockers": st.column_config.TextColumn("Blockers"),
             "source_caveats": st.column_config.TextColumn("Source caveats"),
@@ -585,10 +630,12 @@ def _review_state(row: pd.Series) -> str:
 def _broker_gate(row: pd.Series) -> str:
     status = _text(row.get("broker_validation")) or "NOT_CHECKED"
     ticker = _text(row.get("broker_ticker"))
+    confidence = _text(row.get("instrument_validation_confidence"))
     details = ", ".join(
         value
         for value in [
             ticker,
+            f"confidence {confidence}" if confidence else "",
             _text(row.get("currency")),
             _text(row.get("asset_type")),
         ]
@@ -626,6 +673,7 @@ def _source_caveats(row: pd.Series) -> str:
     caveats = [
         *_split_caveats(row.get("warnings")),
         *_split_caveats(row.get("risk_flags")),
+        *_split_caveats(row.get("identity_caveats")),
     ]
     source = _text(row.get("source"))
     if source in {"watchlist", "default"}:
@@ -691,6 +739,9 @@ def handoff_frame(response: RecommendationHandoffResponse) -> pd.DataFrame:
                 "composite_score": payload["composite_score"],
                 "instrument_validation_status": payload.get("instrument_validation_status"),
                 "broker_ticker": payload.get("broker_ticker"),
+                "isin": payload.get("isin"),
+                "instrument_validation_confidence": payload.get("instrument_validation_confidence"),
+                "identity_caveats": ", ".join(payload.get("identity_caveats") or []),
                 "deep_research_required": payload.get("deep_research_required"),
                 "research_review_status": payload.get("research_review_status"),
                 "research_review_id": payload.get("research_review_id"),
@@ -776,6 +827,11 @@ def render_handoff_table(frame: pd.DataFrame) -> None:
             "composite_score": st.column_config.NumberColumn("Composite", format="%.2f"),
             "instrument_validation_status": st.column_config.TextColumn("Broker validation"),
             "broker_ticker": st.column_config.TextColumn("Broker ticker"),
+            "isin": st.column_config.TextColumn("ISIN"),
+            "instrument_validation_confidence": st.column_config.TextColumn(
+                "Validation confidence"
+            ),
+            "identity_caveats": st.column_config.TextColumn("Identity caveats"),
             "deep_research_required": st.column_config.CheckboxColumn("Deep research"),
             "research_review_status": st.column_config.TextColumn("Research status"),
             "research_review_id": st.column_config.TextColumn("Research review"),
@@ -806,6 +862,8 @@ def instrument_validation_frame(response: InstrumentValidationResponse) -> pd.Da
                 "candidate_broker_tickers": ", ".join(
                     payload.get("candidate_broker_tickers") or []
                 ),
+                "validation_confidence": payload.get("validation_confidence"),
+                "identity_caveats": ", ".join(payload.get("identity_caveats") or []),
                 "isa_eligibility": payload["isa_eligibility"],
                 "reason": payload["reason"],
             }
@@ -853,6 +911,8 @@ def render_instrument_validation_table(frame: pd.DataFrame) -> None:
             "currency": st.column_config.TextColumn("Currency"),
             "asset_type": st.column_config.TextColumn("Type"),
             "candidate_broker_tickers": st.column_config.TextColumn("Candidate tickers"),
+            "validation_confidence": st.column_config.TextColumn("Validation confidence"),
+            "identity_caveats": st.column_config.TextColumn("Identity caveats"),
             "isa_eligibility": st.column_config.TextColumn("ISA state"),
             "reason": st.column_config.TextColumn("Reason"),
         },

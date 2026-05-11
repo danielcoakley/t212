@@ -44,6 +44,9 @@ class RecommendationHandoffRow(BaseModel):
     composite_score: float = Field(ge=-1.0, le=1.0)
     instrument_validation_status: str | None = None
     broker_ticker: str | None = None
+    isin: str | None = None
+    instrument_validation_confidence: str | None = None
+    identity_caveats: list[str] = Field(default_factory=list)
     deep_research_required: bool = False
     research_review_status: str | None = None
     research_review_id: str | None = None
@@ -110,6 +113,7 @@ def _handoff_row(
     blockers = _handoff_blockers(item)
     instrument_status = instrument_row.status.value if instrument_row else None
     broker_ticker = instrument_row.broker_ticker if instrument_row else None
+    identity_fields = _instrument_identity_fields(instrument_row)
 
     if item.action == RecommendationAction.BLOCKED:
         return RecommendationHandoffRow(
@@ -122,6 +126,7 @@ def _handoff_row(
             composite_score=item.scores.composite,
             instrument_validation_status=instrument_status,
             broker_ticker=broker_ticker,
+            **identity_fields,
             eligible_for_preview=False,
             reason="Recommendation is blocked by missing data, event veto, or source warnings.",
             blockers=blockers or item.risk_flags,
@@ -142,6 +147,7 @@ def _handoff_row(
             composite_score=item.scores.composite,
             instrument_validation_status=instrument_status,
             broker_ticker=broker_ticker,
+            **identity_fields,
             deep_research_required=False,
             eligible_for_preview=True,
             reason=(
@@ -168,6 +174,7 @@ def _handoff_row(
                     composite_score=item.scores.composite,
                     instrument_validation_status=instrument_status,
                     broker_ticker=broker_ticker,
+                    **identity_fields,
                     deep_research_required=True,
                     research_review_status=research_status,
                     research_review_id=research_id,
@@ -189,6 +196,7 @@ def _handoff_row(
                 composite_score=item.scores.composite,
                 instrument_validation_status=instrument_status,
                 broker_ticker=broker_ticker,
+                **identity_fields,
                 deep_research_required=True,
                 research_review_status=research_status,
                 research_review_id=research_id,
@@ -241,6 +249,7 @@ def _handoff_row(
             composite_score=item.scores.composite,
             instrument_validation_status=instrument_status,
             broker_ticker=broker_ticker,
+            **identity_fields,
             deep_research_required=True,
             research_review_status=research_status,
             research_review_id=research_id,
@@ -261,6 +270,7 @@ def _handoff_row(
             composite_score=item.scores.composite,
             instrument_validation_status=instrument_status,
             broker_ticker=broker_ticker,
+            **identity_fields,
             eligible_for_preview=False,
             reason=(
                 "Candidate is watchlist context and does not currently clear "
@@ -280,6 +290,7 @@ def _handoff_row(
         composite_score=item.scores.composite,
         instrument_validation_status=instrument_status,
         broker_ticker=broker_ticker,
+        **identity_fields,
         eligible_for_preview=False,
         reason="Existing holding is not asking for a trade in the current review cycle.",
         blockers=blockers,
@@ -296,6 +307,7 @@ def _blocked_event_row(
     candidate = item.candidate
     instrument_status = instrument_row.status.value if instrument_row else None
     broker_ticker = instrument_row.broker_ticker if instrument_row else None
+    identity_fields = _instrument_identity_fields(instrument_row)
     return RecommendationHandoffRow(
         symbol=candidate.symbol,
         research_symbol=candidate.research_symbol,
@@ -306,6 +318,7 @@ def _blocked_event_row(
         composite_score=item.scores.composite,
         instrument_validation_status=instrument_status,
         broker_ticker=broker_ticker,
+        **identity_fields,
         deep_research_required=item.action == RecommendationAction.REVIEW_BUY,
         research_review_status=_research_review_status(research_review),
         research_review_id=research_review.id if research_review else None,
@@ -322,6 +335,20 @@ def _handoff_blockers(item: TradeRecommendation) -> list[str]:
     if "DATA_WARNINGS" in item.risk_flags and item.action != RecommendationAction.BLOCKED:
         blockers.append("REVIEW_SOURCE_WARNINGS")
     return blockers
+
+
+def _instrument_identity_fields(row: InstrumentValidationRow | None) -> dict[str, object]:
+    if row is None:
+        return {
+            "isin": None,
+            "instrument_validation_confidence": None,
+            "identity_caveats": ["BROKER_INSTRUMENT_VALIDATION_NOT_RUN"],
+        }
+    return {
+        "isin": row.isin,
+        "instrument_validation_confidence": row.validation_confidence.value,
+        "identity_caveats": list(row.identity_caveats),
+    }
 
 
 def _broker_validation_blockers(instrument_status: str | None) -> list[str]:

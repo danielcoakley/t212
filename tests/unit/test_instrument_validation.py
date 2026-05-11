@@ -6,7 +6,9 @@ from datetime import UTC, datetime, timedelta
 
 from isa_system.data.providers.trading212 import Trading212Instrument
 from isa_system.services.instrument_validation import (
+    InstrumentIdentityConfidence,
     InstrumentValidationStatus,
+    identity_diagnostics_rows,
     validate_recommendation_instruments,
 )
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot, BrokerPosition
@@ -48,7 +50,19 @@ def test_market_candidate_matches_trading212_metadata() -> None:
     assert response.instrument_count == 1
     assert row.status == InstrumentValidationStatus.BROKER_MATCHED
     assert row.broker_ticker == "GOODl_EQ"
+    assert row.isin == "GB00GOOD0001"
+    assert row.validation_confidence == InstrumentIdentityConfidence.HIGH
+    assert "BROKER_TICKER_NORMALISED" in row.identity_caveats
+    assert "ISIN_MISSING" not in row.identity_caveats
     assert row.isa_eligibility == "requires_account_and_instrument_review"
+
+    diagnostics = identity_diagnostics_rows(response)
+
+    assert diagnostics[0].research_symbol == "GOOD.L"
+    assert diagnostics[0].broker_ticker == "GOODl_EQ"
+    assert diagnostics[0].isin == "GB00GOOD0001"
+    assert diagnostics[0].validation_status == InstrumentValidationStatus.BROKER_MATCHED
+    assert diagnostics[0].validation_confidence == InstrumentIdentityConfidence.HIGH
 
 
 def test_uk_suffix_prefers_london_listing_over_us_match() -> None:
@@ -74,6 +88,9 @@ def test_uk_suffix_prefers_london_listing_over_us_match() -> None:
 
     assert row.status == InstrumentValidationStatus.BROKER_MATCHED
     assert row.broker_ticker == "SHELl_EQ"
+    assert row.candidate_broker_tickers == ["SHEL_US_EQ", "SHELl_EQ"]
+    assert row.validation_confidence == InstrumentIdentityConfidence.MEDIUM
+    assert "ALTERNATIVE_BROKER_TICKERS_PRESENT" in row.identity_caveats
 
 
 def test_ambiguous_symbol_requires_mapping() -> None:
@@ -99,6 +116,45 @@ def test_ambiguous_symbol_requires_mapping() -> None:
 
     assert row.status == InstrumentValidationStatus.NEEDS_MAPPING
     assert row.candidate_broker_tickers == ["ABC_US_EQ", "ABCl_EQ"]
+    assert row.validation_confidence == InstrumentIdentityConfidence.LOW
+    assert "BROKER_TICKER_MISSING" in row.identity_caveats
+    assert "MULTIPLE_BROKER_TICKERS_REQUIRE_MAPPING" in row.identity_caveats
+
+
+def test_identity_diagnostics_flags_research_broker_root_mismatch() -> None:
+    """ISIN-style matches still surface ticker/root mismatch caveats."""
+
+    recommendations = build_recommendations_from_static_data(
+        _snapshot(positions=[]),
+        {
+            "GB00GOOD0001": _provider_row(
+                "GB00GOOD0001",
+                ValuationMetrics(trailing_pe=8.0, price_to_book=1.0),
+            )
+        },
+        candidates=["GB00GOOD0001"],
+        include_default_candidates=False,
+        as_of_utc=datetime(2026, 5, 10, tzinfo=UTC),
+    )
+
+    response = validate_recommendation_instruments(
+        recommendations,
+        instruments=[
+            Trading212Instrument(
+                ticker="GOODl_EQ",
+                name="Good plc",
+                isin="GB00GOOD0001",
+                currencyCode="GBX",
+                type="STOCK",
+            )
+        ],
+    )
+    diagnostics = identity_diagnostics_rows(response)
+
+    assert response.rows[0].status == InstrumentValidationStatus.BROKER_MATCHED
+    assert diagnostics[0].broker_ticker == "GOODl_EQ"
+    assert diagnostics[0].isin == "GB00GOOD0001"
+    assert "BROKER_RESEARCH_SYMBOL_MISMATCH" in diagnostics[0].mismatch_caveats
 
 
 def test_existing_holding_is_confirmed_even_without_metadata_match() -> None:

@@ -759,6 +759,41 @@ service and loads cycles only by operator-supplied ID. No live Trading 212
 POST/order submission path, runtime arming, DB schema, or recommendation
 service semantics changed.
 
+### 2026-05-11 - Identity Diagnostics
+
+What changed: Added additive identity diagnostics to broker instrument
+validation and recommendation review helpers. Validation rows now expose
+confidence and caveats for broker ticker/research symbol/ISIN matching, handoff
+rows carry the same identity context, and dashboard helper frames include
+identity confidence, ISIN, candidate broker tickers, and mismatch caveats
+without changing preview eligibility semantics.
+
+What remains: A later schema-scoped identity mapping slice can persist manual
+overrides, LEI/company-number links, and official-source issuer identity once
+that migration is approved.
+
+Files touched:
+
+- `src/isa_system/services/instrument_validation.py`
+- `src/isa_system/services/recommendation_handoff.py`
+- `src/isa_system/dashboard/recommendation_charts.py`
+- `tests/unit/test_instrument_validation.py`
+- `tests/unit/test_recommendation_handoff.py`
+- `tests/unit/test_dashboard_recommendation_queue.py`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_instrument_validation.py tests/unit/test_recommendation_handoff.py tests/unit/test_dashboard_recommendation_queue.py tests/unit/test_mvp_guardrail_helpers.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The change is additive to existing Pydantic response
+models and does not add DB migrations, order submission, live arming, or new
+broker write paths. Broker validation statuses remain the gating source; the
+new confidence and caveat fields are diagnostics only.
+
 ### 2026-05-11 - Paper/report integration
 
 What changed: Connected the operator report shell to supplied persisted paper
