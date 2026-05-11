@@ -12,6 +12,12 @@ from isa_system.domain.enums import RuntimeMode
 from isa_system.domain.models import TargetWeight
 from isa_system.portfolio.costs import CostModel
 from isa_system.portfolio.rebalancer import build_rebalance_plan
+from isa_system.services.portfolio_state import load_trading212_portfolio
+from isa_system.services.rebalance_preview import (
+    RebalancePreviewSnapshot,
+    build_preview_from_holdings,
+)
+from isa_system.services.valuation import value_current_holdings
 
 router = APIRouter()
 
@@ -40,6 +46,15 @@ def preview(request: RebalancePreviewRequest) -> dict[str, object]:
         "warnings": list(plan.warnings),
         "trades": [trade.__dict__ | {"side": trade.side.value} for trade in plan.trades],
     }
+
+
+@router.get("/rebalances/live-preview", response_model=RebalancePreviewSnapshot)
+def live_preview() -> RebalancePreviewSnapshot:
+    """Return a preview-only plan from the current read-only broker snapshot."""
+
+    snapshot = load_trading212_portfolio()
+    valuation = value_current_holdings(snapshot)
+    return build_preview_from_holdings(snapshot, valuation)
 
 
 @router.post("/rebalances/submit")
