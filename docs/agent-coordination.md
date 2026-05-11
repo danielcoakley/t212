@@ -23,6 +23,209 @@ management visibility come before any deeper live execution work.
 | Auth, roles, permissions | Unassigned | `codex/auth-permission-design` | Pending |
 | Testing, QA, deployment readiness | Unassigned | `codex/testing-readiness` | Pending |
 
+## Parallel Execution Plan
+
+This plan selects the next five practical MVP workstreams for separate Codex
+execution agents. The selection favours operator readiness, workflow clarity,
+pilot evidence, and regression protection over deeper enterprise architecture.
+
+### Selected Workstreams
+
+| Priority | Workstream | Summary | Branch/worktree | Likely files/directories | Dependencies | Acceptance criteria | Conflict risk |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Management diagnostics phase 2 | Extend the first Management page into a clearer operational status surface: cache freshness, provider readiness, broker read-only state, live guardrail state, and next required operator action. Keep controls read-only unless existing APIs already support safe state reads. | `codex/management-diagnostics` | `src/isa_system/dashboard/pages/management.py`, `src/isa_system/dashboard/data.py`, `src/isa_system/dashboard/cache_policy.py`, `src/isa_system/settings.py`, `tests/unit/test_dashboard_management.py`, possibly `docs/dashboard_layout.md` | Existing Management page, settings, broker snapshot, cache policy | Operator can see provider/config gaps, stale cache context, broker readiness, deep research availability, and live guardrails from one page. No order submission or live arming is added. Focused tests cover pure helper/status logic. | Moderate. Avoid editing `src/isa_system/dashboard/app.py` unless navigation must change. |
+| 2 | Local onboarding and pilot setup | Make first-run and pilot setup obvious: local install, env setup, read-only broker connection, preview-only default, OpenAI/deep-research behaviour, and pilot acceptance checklist. Treat signup/pricing as out of scope for this local app. | `codex/local-onboarding` | `README.md`, `.env.example`, `docs/runbook.md`, `docs/assumptions.md`, `docs/README.md`, optionally `docs/pilot-checklist.md` | Management page exists and documents provider/safety concepts | A new operator can run tests, start API/dashboard, configure optional providers, understand why buy/add approvals may be blocked, and follow a pilot checklist without live trading. | Low. Stay docs-first; do not touch dashboard pages in this workstream. |
+| 3 | Recommendation display UX and evidence clarity | Improve the MVP recommendation review surface so blockers, broker validation, research state, source freshness, and next action are easier to scan. Keep recommendation logic deterministic and review-only. | `codex/recommendation-display-ux` | `src/isa_system/dashboard/pages/recommendations.py`, `src/isa_system/dashboard/recommendation_charts.py`, `src/isa_system/services/recommendations.py`, `src/isa_system/services/recommendation_handoff.py`, `tests/unit/test_dashboard_recommendation_queue.py`, focused recommendation tests | Existing recommendation response, handoff rows, instrument validation, deep research status | Recommendation table clearly shows action, blockers, research gate state, preview eligibility, and source caveats. No row implies order authority. Tests cover the displayed columns or helper transforms. | Moderate. Avoid Management page and Preview page edits. |
+| 4 | Pilot paper workflow shell | Add the smallest pilot-cycle shell after preview: selected recommendations, preview sizing, paper simulation snapshot, expected-vs-simulated status, and handoff notes for later persistence. Prefer a service/API/dashboard shell before schema-heavy persistence. | `codex/pilot-paper-workflow` | `src/isa_system/services/paper_simulation.py`, new `src/isa_system/services/pilot_workflow.py` or similar, `src/isa_system/dashboard/pages/preview.py`, `src/isa_system/api/routers/rebalances.py`, `tests/unit/test_paper_simulation.py`, focused integration tests | Recommendation preview and paper simulation already exist | Operator can create or inspect a paper workflow summary from preview data. Missing persistence is explicit. No live broker submit path changes. Tests verify shell output and preview/paper linkage. | Moderate. Avoid DB migrations unless absolutely necessary for this slice. |
+| 5 | MVP QA and route guardrails | Add regression tests around routes and helpers most likely to break during parallel work: health, recommendations, handoff, deep research fallback, preview-only sizing, management helpers, and no-live-submit guardrails. | `codex/mvp-qa-guardrails` | `tests/unit`, `tests/integration`, `src/isa_system/smoke_test.py`, `Makefile`, possibly `.github/*` | Current passing test suite and active workstream contracts | Tests remain fast and offline-safe. New tests protect preview-only semantics, blocked live submit, missing provider behaviour, and dashboard helper transforms. No broad fixture rewrites. | Low to moderate. Avoid changing production code except tiny testability fixes. |
+
+### Execution Order
+
+Agents can start these in parallel, with two practical sequencing notes:
+
+1. Start `management-diagnostics`, `local-onboarding`, and
+   `mvp-qa-guardrails` immediately. They are mostly disjoint and clarify the
+   operator surface.
+2. Start `recommendation-display-ux` in parallel once the agent confirms it
+   will not edit Management files.
+3. Start `pilot-paper-workflow` in parallel if it stays schema-light. If it
+   needs migrations, pause and coordinate before continuing.
+4. Defer identity mapping, official-source ingestion depth, auth, hosted
+   deployment, and full-auto live work until these MVP usability and safety
+   slices are merged.
+
+### Recommended Merge Order
+
+1. `codex/mvp-qa-guardrails`
+2. `codex/management-diagnostics`
+3. `codex/local-onboarding`
+4. `codex/recommendation-display-ux`
+5. `codex/pilot-paper-workflow`
+
+This order puts test coverage first, lands the operational status surface
+before docs point to it, then merges user-facing recommendation and pilot flow
+changes. If QA tests depend on a later feature branch, split them so baseline
+guardrails merge first and feature-specific tests travel with the feature.
+
+### Exact Execution Prompts
+
+#### Management Diagnostics
+
+```text
+You are the Codex execution agent for the Management diagnostics phase 2 workstream.
+
+Read:
+- docs/agent-coordination.md
+- docs/implementation-roadmap.md
+- docs/mvp-gap-analysis.md
+- docs/dashboard_layout.md
+- src/isa_system/dashboard/pages/management.py
+- src/isa_system/dashboard/data.py
+- src/isa_system/dashboard/cache_policy.py
+- src/isa_system/settings.py
+
+Goal:
+Improve the existing read-only Management page so it gives the operator a clearer operational status view: provider readiness, cache freshness, broker read-only status, deep research availability, live guardrails, and the next required safe action.
+
+Constraints:
+- Do not add order submission.
+- Do not add live arming controls unless they only reflect existing state safely.
+- Avoid editing src/isa_system/dashboard/app.py unless navigation is genuinely broken.
+- Keep helpers testable and add focused tests.
+
+Acceptance:
+- The Management page answers: what is configured, what is stale or missing, what is blocked, and what should the operator do next?
+- Preview/live guardrails remain visible.
+- Tests pass for any new helper/status logic.
+- Add a handoff note to docs/agent-coordination.md.
+```
+
+#### Local Onboarding And Pilot Setup
+
+```text
+You are the Codex execution agent for the local onboarding and pilot setup workstream.
+
+Read:
+- docs/agent-coordination.md
+- docs/implementation-roadmap.md
+- docs/mvp-gap-analysis.md
+- README.md
+- .env.example
+- docs/runbook.md
+- docs/assumptions.md
+- docs/README.md
+
+Goal:
+Make first-run and pilot setup clear for a local-first operator: install, test, run API/dashboard, configure optional provider keys, connect Trading 212 read-only credentials, understand preview-only defaults, understand why OpenAI/deep research may block buy/add preview approval, and follow a pilot acceptance checklist.
+
+Constraints:
+- This is not a SaaS signup/pricing flow.
+- Prefer docs-first changes.
+- Do not introduce hosted auth, deployment changes, or live trading changes.
+- Do not edit dashboard code in this branch unless the docs reveal a broken reference.
+
+Acceptance:
+- A new operator can get to a safe preview-only dashboard from the docs.
+- The pilot checklist is concrete and auditable.
+- Provider setup is clear without exposing or inventing secrets.
+- Add a handoff note to docs/agent-coordination.md.
+```
+
+#### Recommendation Display UX And Evidence Clarity
+
+```text
+You are the Codex execution agent for the recommendation display UX and evidence clarity workstream.
+
+Read:
+- docs/agent-coordination.md
+- docs/implementation-roadmap.md
+- docs/mvp-gap-analysis.md
+- src/isa_system/dashboard/pages/recommendations.py
+- src/isa_system/dashboard/recommendation_charts.py
+- src/isa_system/services/recommendations.py
+- src/isa_system/services/recommendation_handoff.py
+- tests/unit/test_dashboard_recommendation_queue.py
+
+Goal:
+Improve the recommendation review surface so an operator can quickly scan action, blockers, broker validation, research review state, preview eligibility, source caveats, and next step.
+
+Constraints:
+- Keep recommendations review-only.
+- Do not add order authority.
+- Do not change live execution or Management page files.
+- Preserve existing service contracts unless a tiny additive field is clearly needed.
+
+Acceptance:
+- The dashboard recommendation table/helper output is easier to scan and still exposes blockers.
+- Missing evidence and provider caveats remain conservative and visible.
+- Focused tests cover any new displayed columns or transforms.
+- Add a handoff note to docs/agent-coordination.md.
+```
+
+#### Pilot Paper Workflow Shell
+
+```text
+You are the Codex execution agent for the pilot paper workflow shell workstream.
+
+Read:
+- docs/agent-coordination.md
+- docs/implementation-roadmap.md
+- docs/mvp-gap-analysis.md
+- src/isa_system/services/recommendation_preview.py
+- src/isa_system/services/paper_simulation.py
+- src/isa_system/dashboard/pages/preview.py
+- src/isa_system/api/routers/rebalances.py
+- tests/unit/test_paper_simulation.py
+- tests/integration/test_mvp_realignment_api.py
+
+Goal:
+Add the smallest useful pilot workflow shell after preview: selected recommendation preview rows, paper simulation snapshot, expected-vs-simulated status, warnings, and clear next action. Prefer a schema-light service/API/dashboard shell before persistent paper-cycle migrations.
+
+Constraints:
+- Do not add live broker submission.
+- Do not change Trading 212 live submit semantics.
+- Avoid DB migrations unless absolutely required; if a migration becomes necessary, stop and document the proposed schema first.
+- Keep output tolerant of missing broker/provider data.
+
+Acceptance:
+- An operator can inspect a pilot paper workflow summary from existing preview/paper data.
+- The output makes missing persistence/reconciliation explicit.
+- Tests verify preview-to-paper linkage and safe no-live behaviour.
+- Add a handoff note to docs/agent-coordination.md.
+```
+
+#### MVP QA And Route Guardrails
+
+```text
+You are the Codex execution agent for the MVP QA and route guardrails workstream.
+
+Read:
+- docs/agent-coordination.md
+- docs/implementation-roadmap.md
+- docs/mvp-gap-analysis.md
+- pyproject.toml
+- Makefile
+- tests/unit
+- tests/integration
+- src/isa_system/api
+- src/isa_system/dashboard
+
+Goal:
+Add focused offline-safe regression tests for MVP guardrails: health, recommendations, handoff, deep research fallback, preview-only sizing, management helpers, SQLite first-run behaviour, and blocked live submit.
+
+Constraints:
+- Keep tests fast and deterministic.
+- Avoid broad fixture rewrites.
+- Do not add new external network dependencies.
+- Change production code only for small testability or first-run reliability fixes.
+
+Acceptance:
+- New tests protect preview-only semantics and live guardrails.
+- Existing tests still pass with `$env:PYTHONPATH='src'; python -m pytest -q`.
+- Ruff check and format check pass.
+- Add a handoff note to docs/agent-coordination.md.
+```
+
 ## File Ownership Map
 
 | Area | Primary owner | Avoid touching unless necessary |
