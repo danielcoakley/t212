@@ -7,9 +7,9 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 
 | Priority | Task | Owner | Branch/worktree | Status |
 | --- | --- | --- | --- | --- |
-| P1 | Source freshness diagnostics | Next worker | `codex/source-freshness-diagnostics` | Queued for isolated batch |
-| P1 | Operator report export shell | Next worker | `codex/operator-report-shell` | Queued for isolated batch |
-| P1 | Paper intent and simulated fill persistence | Next worker | `codex/paper-intent-persistence` | Queued for isolated batch |
+| P1 | Source freshness diagnostics | Pascal | `codex/source-freshness-diagnostics` | Active in isolated worktree |
+| P1 | Operator report export shell | Kant | `codex/operator-report-shell` | Active in isolated worktree |
+| P1 | Paper intent and simulated fill persistence | Feynman | `codex/paper-intent-persistence` | Active in isolated worktree |
 
 ## Completed This Cycle
 
