@@ -8,6 +8,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from isa_system.services.recommendation_handoff import RecommendationHandoffResponse
 from isa_system.services.recommendations import RecommendationsResponse
 from isa_system.utils.time import to_london
 
@@ -148,6 +149,99 @@ def render_recommendation_table(frame: pd.DataFrame) -> None:
             "llm_enabled": st.column_config.CheckboxColumn("LLM"),
             "llm_headline": st.column_config.TextColumn("LLM headline"),
             "warnings": st.column_config.TextColumn("Warnings"),
+        },
+    )
+
+
+def handoff_frame(response: RecommendationHandoffResponse) -> pd.DataFrame:
+    """Flatten recommendation hand-off rows for dashboard display."""
+
+    rows: list[dict[str, Any]] = []
+    for item in response.rows:
+        payload = item.model_dump(mode="json")
+        rows.append(
+            {
+                "symbol": payload["symbol"],
+                "research_symbol": payload["research_symbol"],
+                "source": payload["source"],
+                "recommendation_action": payload["recommendation_action"],
+                "preview_action": payload["proposed_preview_action"],
+                "handoff_status": payload["handoff_status"],
+                "composite_score": payload["composite_score"],
+                "reason": payload["reason"],
+                "blockers": ", ".join(payload.get("blockers") or []),
+                "next_step": payload["next_step"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def render_handoff_summary(response: RecommendationHandoffResponse, frame: pd.DataFrame) -> None:
+    """Render hand-off readiness metrics and warnings."""
+
+    cols = st.columns(4)
+    cols[0].metric("Preview eligible", str(response.eligible_count))
+    cols[1].metric("Needs validation", str(response.review_required_count))
+    cols[2].metric("Blocked", str(response.blocked_count))
+    cols[3].metric("Rows", str(len(frame)))
+    generated = to_london(response.generated_at_utc)
+    st.caption(
+        f"Hand-off generated from {response.provider} at "
+        f"{generated:%Y-%m-%d %H:%M:%S %Z}. It is still preview-only."
+    )
+
+
+def render_handoff_chart(frame: pd.DataFrame) -> None:
+    """Render hand-off readiness by recommendation symbol."""
+
+    if frame.empty:
+        st.info("No hand-off rows are available.")
+        return
+    st.altair_chart(
+        alt.Chart(frame)
+        .mark_bar(size=28)
+        .encode(
+            x=alt.X(
+                "composite_score:Q",
+                title="Composite score",
+                scale=alt.Scale(domain=[-1, 1]),
+            ),
+            y=alt.Y("research_symbol:N", sort="-x", title=None),
+            color=alt.Color("handoff_status:N", title="Hand-off status"),
+            tooltip=[
+                alt.Tooltip("research_symbol:N", title="Symbol"),
+                alt.Tooltip("recommendation_action:N", title="Recommendation"),
+                alt.Tooltip("preview_action:N", title="Preview action"),
+                alt.Tooltip("handoff_status:N", title="Status"),
+                alt.Tooltip("blockers:N", title="Blockers"),
+            ],
+        )
+        .properties(height=max(220, 34 * len(frame))),
+        width="stretch",
+    )
+
+
+def render_handoff_table(frame: pd.DataFrame) -> None:
+    """Render review hand-off rows."""
+
+    if frame.empty:
+        st.info("No hand-off rows are available.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "symbol": st.column_config.TextColumn("Broker symbol"),
+            "research_symbol": st.column_config.TextColumn("Research symbol"),
+            "source": st.column_config.TextColumn("Source"),
+            "recommendation_action": st.column_config.TextColumn("Recommendation"),
+            "preview_action": st.column_config.TextColumn("Preview action"),
+            "handoff_status": st.column_config.TextColumn("Hand-off status"),
+            "composite_score": st.column_config.NumberColumn("Composite", format="%.2f"),
+            "reason": st.column_config.TextColumn("Reason"),
+            "blockers": st.column_config.TextColumn("Blockers"),
+            "next_step": st.column_config.TextColumn("Next step"),
         },
     )
 

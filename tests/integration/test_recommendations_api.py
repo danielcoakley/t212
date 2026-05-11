@@ -91,6 +91,23 @@ def test_recommendations_endpoint_is_offline_safe(monkeypatch: pytest.MonkeyPatc
         "BLOCKED",
     }
 
+    handoff_response = TestClient(app).get(
+        "/recommendations/handoff",
+        params=[("candidates", "TSCO.L"), ("include_defaults", "false")],
+    )
+
+    assert handoff_response.status_code == 200
+    handoff = handoff_response.json()
+    assert handoff["provider"] == "static"
+    assert handoff["eligible_count"] >= 0
+    assert handoff["review_required_count"] >= 0
+    assert {row["handoff_status"] for row in handoff["rows"]} <= {
+        "ELIGIBLE",
+        "REVIEW_REQUIRED",
+        "BLOCKED",
+        "NO_ACTION",
+    }
+
 
 def _closes(count: int) -> list[DailyAdjustedClose]:
     start = datetime(2025, 1, 1, tzinfo=UTC)

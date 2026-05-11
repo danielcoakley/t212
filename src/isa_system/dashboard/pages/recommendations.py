@@ -6,13 +6,18 @@ import streamlit as st
 
 from isa_system.dashboard.data import broker_snapshot, recommendations
 from isa_system.dashboard.recommendation_charts import (
+    handoff_frame,
     recommendation_frame,
     render_action_chart,
     render_component_heatmap,
+    render_handoff_chart,
+    render_handoff_summary,
+    render_handoff_table,
     render_recommendation_summary,
     render_recommendation_table,
 )
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
+from isa_system.services.recommendation_handoff import build_recommendation_handoff
 
 
 def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
@@ -48,6 +53,8 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
         include_llm=include_llm,
     )
     frame = recommendation_frame(response)
+    handoff = build_recommendation_handoff(response)
+    handoff_rows = handoff_frame(handoff)
 
     render_recommendation_summary(response, frame)
 
@@ -59,6 +66,15 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
 
     st.subheader("Recommendation Table")
     render_recommendation_table(frame)
+
+    st.subheader("Rebalance Hand-off")
+    st.caption(
+        "Rows can only move toward preview after human review. Market-scan buys remain held "
+        "for broker instrument, ISA eligibility, liquidity, and official-source validation."
+    )
+    render_handoff_summary(handoff, handoff_rows)
+    render_handoff_chart(handoff_rows)
+    render_handoff_table(handoff_rows)
 
     st.subheader("MVP Guardrails")
     st.dataframe(

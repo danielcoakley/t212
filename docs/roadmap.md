@@ -5,7 +5,9 @@ milestones. The system stays local-first, long-only, ISA-aware, and cautious:
 live broker access is used for read-only context until paper workflows,
 point-in-time data checks, risk controls, and operator reviews are mature.
 The recommendation MVP adds review-only action prompts across current holdings
-and wider-market candidates, but it is not an execution feature.
+and wider-market candidates, plus an explicit hand-off status that shows what
+can move toward preview review and what still needs validation. It is not an
+execution feature.
 
 ## Status Key
 
@@ -22,7 +24,7 @@ and wider-market candidates, but it is not an execution feature.
 | --- | --- | --- |
 | Live read-only broker integration | Done | Trading 212 account summary and positions can be loaded through read-only GET calls for dashboard and analytics context. Keep order submission disabled by default. |
 | Portfolio analytics | Done, then expand | Current analytics cover cash, invested value, concentration, currency exposure, top positions, and unrealised P/L where supplied. Next: valuation overlays, sleeve drift, drawdown, and benchmark context. |
-| Recommendation MVP | Planned | Next milestone is a review-only action queue for current holdings and a wider-market scan feed. Recommendations must respect risk checks, event vetoes, source freshness, and operator review; they must not create orders. OpenAI/LLM rationale is optional enrichment that is disabled or degrades when no key is present. |
+| Recommendation MVP | Done, then expand | A review-only action queue scans current holdings and a configurable wider-market list using valuation, technical, sentiment/news, and catalyst evidence. It includes deterministic rationale, optional OpenAI/LLM rationale, blockers, and a rebalance hand-off status that prevents market-scan buys from becoming preview targets until broker instrument and ISA validation are complete. |
 | Dashboard pages | In progress | Overview, Holdings, Valuation, Catalysts, Rebalance, Factors, and Audit tabs now render live or local context. Next: paper workflow, source freshness timelines, and deeper official-source validation. |
 | Point-in-time official data | Planned | Architecture names SEC EDGAR, Companies House, LSE RNS, FCA NSM, and FRED as validation or macro layers. Next: ingestion adapters, retrieved-at metadata, PIT joins, and tests that reject look-ahead data. |
 | Factors and rankings | In progress | Quality, value, momentum, dividend, sector normalisation, composite scoring, and versioned strategy configs are scaffolded. Next: official timestamp alignment, missing-data policy, peer/sector valuation factors, and attribution views. |
@@ -56,7 +58,7 @@ sets the practical direction for the next few days of buildout:
 | P0 | Keep live broker integration read-only | Trading 212 adapter, portfolio API, dashboard | Operator can see current account value, cash, holdings, concentration, currency exposure, and warnings without creating orders. | Done |
 | P0 | Make valuation visible | Dashboard Valuation page, valuation API contract, docs | Operator can inspect current price, valuation multiples, source freshness, technical indicators, events, sentiment/news context, and missing-data warnings before any rebalance. | Done, then expand |
 | P0 | Strengthen portfolio analytics | Portfolio service, dashboard widgets | Account health, sleeve drift, cash buffer, largest holdings, FX exposure, and unrealised P/L are visible at a glance. | In progress |
-| P1 | Prototype recommendation MVP | Recommendations view, valuation/factor output, convenience scan feed, docs | Operator can review hold/add/trim/reduce/watch actions for live holdings and wider-market candidates with rationale, blockers, freshness, and caveats; no recommendation can create an order. | Planned |
+| P1 | Prototype recommendation MVP | Recommendations view, valuation/factor output, convenience scan feed, hand-off status, docs | Operator can review hold/add/trim/reduce/watch actions for live holdings and wider-market candidates with rationale, blockers, freshness, and caveats; no recommendation can create an order. | Done, then expand |
 | P0 | Replace dashboard placeholders | Catalysts, Factors, Audit pages | Left-nav pages show live holdings context, provider events/news, starter attribution, audit status, and smoke artefacts instead of synthetic rows. | Done, then expand |
 | P1 | Add PIT official data backbone | Data lake, official-source adapters, provider tests | Factors and events are joined only with data known at that time, with retrieved-at and accepted-at timestamps. | Planned |
 | P1 | Complete factor attribution | Factors, configs, dashboard | Quality, value, momentum, dividend, sector-neutral adjustments, missing-data policy, and config hash are explainable per ticker. | In progress |
@@ -68,7 +70,7 @@ sets the practical direction for the next few days of buildout:
 
 | Month | Milestone | Included requirements | Exit criteria |
 | --- | --- | --- | --- |
-| Month 1 | Read-only operator cockpit, recommendation MVP, and data foundations | Live read-only broker context, portfolio analytics, dashboard pages, source freshness, valuation/technical overlays, review-only recommendation actions, convenience scan prototype, smoke tests | Dashboard clearly shows broker state, analytics, warnings, valuation context, recommendation caveats, and missing-data gaps; live orders remain blocked; docs define PIT data contracts. |
+| Month 1 | Read-only operator cockpit, recommendation MVP, and data foundations | Live read-only broker context, portfolio analytics, dashboard pages, source freshness, valuation/technical overlays, review-only recommendation actions, convenience scan prototype, review hand-off status, smoke tests | Dashboard clearly shows broker state, analytics, warnings, valuation context, recommendation caveats, hand-off blockers, and missing-data gaps; live orders remain blocked; docs define PIT data contracts. |
 | Month 2 | Point-in-time research and paper trading | Official data ingestion, factors, rankings, target weights, paper broker, risk checks, event vetoes, reviewed candidate hand-off into rebalance preview | PIT tests catch look-ahead joins; factor attribution is reviewable; paper rebalances produce auditable fills and reconciliation reports after human review. |
 | Month 3 | Micro-live readiness | Live arming, kill switch, idempotency, cost controls, API/dashboard workflow, operator runbooks | Repeated paper cycles pass; duplicate-order and kill-switch drills pass; micro-live remains guarded behind human approval and documented go/no-go checks. |
 
@@ -84,7 +86,7 @@ gantt
     Dashboard pages and UI roadmap          :active, m1c, 2026-05-15, 12d
     Valuation page contract and widgets     :m1d, 2026-05-20, 12d
     Source freshness and PIT contracts      :m1e, 2026-05-25, 14d
-    Recommendation MVP prototype            :m1f, 2026-05-28, 10d
+    Recommendation MVP prototype            :active, m1f, 2026-05-28, 10d
 
     section Month 2 - Research and paper
     Official data adapters and PIT tests    :m2a, 2026-06-08, 18d
