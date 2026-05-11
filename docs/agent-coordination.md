@@ -599,6 +599,42 @@ provider fetch semantics, broker submission, live arming, mode mutation, or DB
 schema changes were made. Recommendation rows remain review/preview context, not
 order authority.
 
+### 2026-05-11 - Operator Report Shell
+
+What changed: Added a side-effect-free operator report shell service that
+aggregates available account, recommendation, research, preview, pilot-paper,
+and management evidence into JSON plus a Markdown-ready summary. Missing,
+stale, blocked, unavailable, and not-persisted sections are labelled explicitly.
+Added a read-only `/operator-report` route that builds the report from existing
+MVP services and only creates preview/paper sections when symbols are supplied.
+
+What remains: Persist paper cycles and reconciliation before treating paper
+evidence as durable. A future dashboard/export surface can consume the service
+without changing broker execution semantics.
+
+Files touched:
+
+- `src/isa_system/services/operator_report.py`
+- `src/isa_system/api/routers/operator_report.py`
+- `src/isa_system/api/main.py`
+- `tests/unit/test_operator_report.py`
+- `tests/integration/test_operator_report_api.py`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_operator_report.py tests/integration/test_operator_report_api.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/integration/test_mvp_realignment_api.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The route reuses read-only broker, recommendation,
+validation, research-review, preview, and pilot workflow services. It does not
+submit broker orders, arm live trading, persist paper output, or add migrations.
+The report's paper section intentionally reports persistence and reconciliation
+as missing until the paper persistence workstream lands.
+
 ### 2026-05-11 - Paper Intent Persistence
 
 What changed: Added a durable paper-cycle persistence slice for selected
