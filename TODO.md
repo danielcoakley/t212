@@ -7,10 +7,10 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 
 | Priority | Task | Owner | Branch/worktree | Status |
 | --- | --- | --- | --- | --- |
-| P1 | Paper/report integration | Next worker | `codex/paper-report-integration` | Queued |
-| P1 | Paper cycle review surface | Next worker | `codex/paper-cycle-review` | Queued |
-| P1 | Identity diagnostics | Next worker | `codex/identity-diagnostics` | Queued |
-| P1 | API/release readiness QA | Next worker | `codex/api-release-readiness` | Queued |
+| P1 | Paper/report integration | Turing | `codex/paper-report-integration` | Active in isolated worktree |
+| P1 | Paper cycle review surface | Cicero | `codex/paper-cycle-review` | Active in isolated worktree |
+| P1 | Identity diagnostics | Heisenberg | `codex/identity-diagnostics` | Active in isolated worktree |
+| P1 | API/release readiness QA | Franklin | `codex/api-release-readiness` | Active in isolated worktree |
 
 ## Completed This Cycle
 

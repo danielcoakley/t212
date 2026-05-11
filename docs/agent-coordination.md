@@ -22,10 +22,10 @@ management visibility come before any deeper live execution work.
 | Source freshness diagnostics | Pascal | `codex/parallel-partial-integration` | Integrated |
 | Recommendation engine / agent output | Russell / orchestrator | `codex/parallel-partial-integration` | Completed display slice |
 | Report generation | Kant | `codex/parallel-partial-integration` | Integrated report shell |
-| Paper/report integration | Unassigned | `codex/paper-report-integration` | Queued |
-| Paper cycle review surface | Unassigned | `codex/paper-cycle-review` | Queued |
-| Identity diagnostics | Unassigned | `codex/identity-diagnostics` | Queued |
-| API/release readiness QA | Unassigned | `codex/api-release-readiness` | Queued |
+| Paper/report integration | Turing | `codex/paper-report-integration` | Active in isolated worktree |
+| Paper cycle review surface | Cicero | `codex/paper-cycle-review` | Active in isolated worktree |
+| Identity diagnostics | Heisenberg | `codex/identity-diagnostics` | Active in isolated worktree |
+| API/release readiness QA | Franklin | `codex/api-release-readiness` | Active in isolated worktree |
 | Auth, roles, permissions | Unassigned | `codex/auth-permission-design` | Pending |
 | Testing, QA, deployment readiness | Zeno | `codex/parallel-partial-integration` | Completed guardrail slice |
 | Management diagnostics phase 2 | Tesla | `codex/parallel-partial-integration` | Integrated |
