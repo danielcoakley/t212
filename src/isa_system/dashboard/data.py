@@ -14,6 +14,7 @@ from isa_system.services.rebalance_preview import (
     RebalancePreviewSnapshot,
     build_preview_from_holdings,
 )
+from isa_system.services.recommendations import RecommendationsResponse, build_recommendations
 from isa_system.services.valuation import HoldingsValuationResponse, value_current_holdings
 
 
@@ -38,6 +39,7 @@ def refresh_broker_snapshot() -> BrokerPortfolioSnapshot:
     _holdings_valuation_payload.clear()
     _rebalance_preview_payload.clear()
     _paper_simulation_payload.clear()
+    _recommendations_payload.clear()
     return broker_snapshot()
 
 
@@ -97,4 +99,42 @@ def paper_simulation(
     broker = snapshot or broker_snapshot()
     return PaperSimulationSnapshot.model_validate(
         _paper_simulation_payload(broker.model_dump(mode="json"))
+    )
+
+
+@st.cache_data(ttl=900, show_spinner="Scanning holdings and market candidates...")
+def _recommendations_payload(
+    broker_payload: dict[str, object],
+    candidates: tuple[str, ...],
+    include_defaults: bool,
+    include_llm: bool,
+) -> dict[str, object]:
+    """Return cached review-only recommendations."""
+
+    snapshot = BrokerPortfolioSnapshot.model_validate(broker_payload)
+    return build_recommendations(
+        snapshot,
+        candidates=candidates,
+        include_default_candidates=include_defaults,
+        include_llm_rationale=include_llm,
+    ).model_dump(mode="json")
+
+
+def recommendations(
+    snapshot: BrokerPortfolioSnapshot | None = None,
+    *,
+    candidates: tuple[str, ...] = (),
+    include_defaults: bool = True,
+    include_llm: bool = False,
+) -> RecommendationsResponse:
+    """Return review-only recommendations for holdings and scan candidates."""
+
+    broker = snapshot or broker_snapshot()
+    return RecommendationsResponse.model_validate(
+        _recommendations_payload(
+            broker.model_dump(mode="json"),
+            candidates,
+            include_defaults,
+            include_llm,
+        )
     )

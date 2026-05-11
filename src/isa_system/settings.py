@@ -81,6 +81,8 @@ class Settings(BaseSettings):
         default=None, validation_alias="REDDIT_CLIENT_SECRET"
     )
     x_bearer_token: SecretStr | None = Field(default=None, validation_alias="X_BEARER_TOKEN")
+    openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
+    openai_model: str = Field(default="gpt-4o-mini", validation_alias="OPENAI_MODEL")
 
 
 @lru_cache

@@ -14,6 +14,7 @@ from isa_system.dashboard.pages import (
     holdings,
     overview,
     rebalance_preview,
+    recommendations,
     valuation,
 )
 from isa_system.utils.time import to_london
@@ -37,21 +38,32 @@ def main() -> None:
         for warning in snapshot.warnings:
             st.warning(warning)
     tabs = st.tabs(
-        ["Overview", "Holdings", "Valuation", "Catalysts", "Rebalance", "Factors", "Audit"]
+        [
+            "Overview",
+            "Holdings",
+            "Recommendations",
+            "Valuation",
+            "Catalysts",
+            "Rebalance",
+            "Factors",
+            "Audit",
+        ]
     )
     with tabs[0]:
         overview.render(snapshot)
     with tabs[1]:
         holdings.render(snapshot)
     with tabs[2]:
-        valuation.render(snapshot)
+        recommendations.render(snapshot)
     with tabs[3]:
-        catalysts.render(snapshot)
+        valuation.render(snapshot)
     with tabs[4]:
-        rebalance_preview.render(snapshot)
+        catalysts.render(snapshot)
     with tabs[5]:
-        factor_attribution.render(snapshot)
+        rebalance_preview.render(snapshot)
     with tabs[6]:
+        factor_attribution.render(snapshot)
+    with tabs[7]:
         audit_logs.render(snapshot)
 
 
