@@ -8,42 +8,80 @@ The starter prioritises safety, auditability, point-in-time correctness,
 and operational simplicity. It is not financial, tax, or investment
 advice.
 
-## Quick Start
+## Local First Run
+
+Use this path for a safe first run on a local workstation. It does not require
+external API keys, Trading 212 credentials, hosted auth, or live trading.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
 python -m pip install -e ".[dev]"
+Copy-Item .env.example .env.local
 python -m pytest -q
 python -m isa_system.smoke_test
 ```
 
-Start the local control plane:
+Start the local control plane in one terminal:
 
 ```powershell
-uvicorn isa_system.api.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn isa_system.api.main:app --host 127.0.0.1 --port 8000
+Invoke-RestMethod http://127.0.0.1:8000/health
 ```
 
-Start the dashboard:
+Start the dashboard in another terminal:
 
 ```powershell
-streamlit run src/isa_system/dashboard/app.py
+python -m streamlit run src/isa_system/dashboard/app.py
 ```
+
+Then open the Streamlit URL printed by the command, usually
+`http://localhost:8501`. Begin on Overview, then use Management to confirm
+runtime mode, broker status, provider gaps, cache freshness, and live guardrails.
+
+Expected first-run state:
+
+- `ISA_RUNTIME_MODE=preview` and the API control plane starts disarmed.
+- No Trading 212 credentials means the dashboard shows synthetic or empty local
+  context with a broker setup warning.
+- No `OPENAI_API_KEY` means deep research is unavailable, so buy/add rows cannot
+  receive the `RESEARCH_PASSED` gate needed for preview approval.
+- Recommendation and preview pages are review-only. They do not submit orders.
 
 ## Configuration
 
-Copy `.env.example` to `env.local` or `.env.local` and fill only the keys
-you intend to use. The smoke test, tests, API, and dashboard run without
-external API keys. Services bind to `127.0.0.1` by default.
+Copy `.env.example` to `env.local` or `.env.local`; both are loaded, with
+`.env.local` used in the quick-start example. Fill only the keys you intend to
+use. The smoke test, tests, API, and dashboard run without external API keys.
+Services bind to `127.0.0.1` by default.
 
-The dashboard can display Trading 212 account summary and positions using
-read-only GET endpoints when `TRADING212_API_KEY`,
-`TRADING212_API_SECRET`, and `TRADING212_ENVIRONMENT=live` are available.
-This does not arm or submit live orders.
+Keep real broker-specific identifiers, account values, and secrets outside
+tracked files. Never paste `.env.local` contents into issues, docs, commits, or
+agent prompts.
 
-Config examples live under `configs/`. Real broker-specific identifiers,
-account values, and secrets must stay outside tracked files.
+### Provider Setup
+
+| Provider | Variables | When to configure | First-run impact if blank |
+| --- | --- | --- | --- |
+| Trading 212 | `TRADING212_API_KEY`, `TRADING212_API_SECRET`, `TRADING212_ENVIRONMENT` | Configure for read-only account summary, positions, active orders, and broker universe context. Use `demo` first; use `live` only when the operator intentionally wants live account context. | Dashboard remains safe with `not_configured` broker status. |
+| OpenAI | `OPENAI_API_KEY`, `OPENAI_MODEL` | Configure when the pilot needs the deep research gate for buy/add candidates. | Buy/add preview approval remains blocked because no non-expired `RESEARCH_PASSED` review can be produced. |
+| Alpha Vantage, FMP, FRED | `ALPHA_VANTAGE_API_KEY`, `FMP_API_KEY`, `FRED_API_KEY` | Optional convenience enrichment for prices, fundamentals, and macro context. | The app uses local fallbacks or empty provider results where safe. |
+| Companies House, SEC EDGAR | `COMPANIES_HOUSE_API_KEY`, `SEC_USER_AGENT` | Optional official-source identity and filing context. SEC asks automated clients to identify themselves. | Official-source coverage stays partial. |
+| Sentiment overlays | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `X_BEARER_TOKEN` | Optional, low-weight sentiment enrichment. | Sentiment stays disabled and must not block the local cockpit. |
+
+Trading 212 credentials are used by the current dashboard for read-only GET
+context. Setting `TRADING212_ENVIRONMENT=live` allows live account reads, but it
+does not arm live submission. During the pilot, leave `ISA_RUNTIME_MODE=preview`,
+do not call live arming endpoints, and treat all recommendation and preview
+output as operator review material.
+
+## Pilot Checklist
+
+Use `docs/pilot-checklist.md` for an auditable pilot acceptance checklist. The
+checklist is designed for local operation only: install, safe startup, provider
+readiness, Trading 212 read-only context, recommendation review, deep research
+gate behaviour, preview-only sizing, paper simulation, and evidence capture.
 
 ## Architecture Summary
 

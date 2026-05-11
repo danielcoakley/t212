@@ -18,3 +18,4 @@ Start with:
 | `agent-coordination.md` | Parallel workstream ownership, merge order, and handoff notes. |
 | `dashboard_layout.md` | Operator dashboard widget map. |
 | `assumptions.md` | Explicit assumptions and validation items. |
+| `pilot-checklist.md` | Local preview-first pilot checklist and stop conditions. |
