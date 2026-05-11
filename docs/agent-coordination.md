@@ -422,3 +422,32 @@ Integration concerns: The first worker batch did not complete normal handoff
 notes because it was paused. The orchestrator added tests and commits for the
 salvaged slices. Continue future parallel work only in explicit worktree
 directories.
+
+### 2026-05-11 - MVP QA Guardrails
+
+What changed: Added focused offline regression coverage for preview-first MVP
+guardrails across health status, recommendation handoff gating, deep research
+fallback, preview-only recommendation sizing, management helper safety rows,
+SQLite first-run setup, blocked live submit, and dashboard review tables that
+must not imply order authority.
+
+What remains: Broaden route coverage after the management diagnostics,
+recommendation display, and pilot paper workflow branches land; feature-specific
+assertions should travel with those branches if their contracts change.
+
+Files touched:
+
+- `tests/integration/test_mvp_guardrails.py`
+- `tests/unit/test_mvp_guardrail_helpers.py`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/integration/test_mvp_guardrails.py tests/unit/test_mvp_guardrail_helpers.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The tests monkeypatch broker, market-data, and OpenAI
+seams to remain deterministic and offline. They assert existing preview-only
+semantics and do not add live order submission paths.
