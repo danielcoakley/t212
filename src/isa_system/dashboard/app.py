@@ -13,11 +13,25 @@ from isa_system.dashboard.data import (
     refresh_market_data,
 )
 from isa_system.dashboard.pages import (
+    advanced,
     overview,
+    preview,
     recommendations,
     research_review,
+    screener,
 )
 from isa_system.utils.time import to_london
+
+
+def _parse_candidates(raw_value: str) -> tuple[str, ...]:
+    """Parse comma/newline separated symbols from the sidebar scope control."""
+
+    return tuple(
+        item.strip()
+        for chunk in raw_value.splitlines()
+        for item in chunk.split(",")
+        if item.strip()
+    )
 
 
 def main() -> None:
@@ -26,13 +40,6 @@ def main() -> None:
     st.set_page_config(page_title="ISA System", layout="wide")
     window = cache_window()
     snapshot = broker_snapshot()
-    if st.sidebar.button("Refresh market data now", type="primary"):
-        with st.sidebar.status("Refreshing dashboard cache...", expanded=True) as status:
-            st.write("Clearing broker, instrument, valuation, and recommendation caches.")
-            snapshot = refresh_market_data()
-            st.write("Rebuilding the default recommendation workflow cache.")
-            recommendation_workflow(snapshot, include_defaults=True, include_llm=False)
-            status.update(label="Dashboard cache refreshed.", state="complete", expanded=False)
     london_now = to_london(datetime.now(tz=UTC))
     opened = to_london(window.opened_at_utc)
     next_refresh = to_london(window.next_refresh_at_utc)
@@ -40,9 +47,35 @@ def main() -> None:
         st.title("ISA System")
         page = st.radio(
             "Workflow",
-            ["Overview", "Recommendations", "Research Review"],
+            ["Overview", "Screener", "Recommendations", "Deep Research", "Preview", "Advanced"],
             index=0,
         )
+        st.divider()
+        st.subheader("Screening Scope")
+        raw_candidates = st.text_area(
+            "Manual symbols",
+            value="",
+            help="Optional comma or newline separated symbols, for example VOD.L, GSK.L, NVDA.",
+        )
+        candidates = _parse_candidates(raw_candidates)
+        include_defaults = st.checkbox("Use Trading 212 universe scan", value=True)
+        include_llm = st.checkbox(
+            "Attach short LLM rationale",
+            value=False,
+            help="The deep research gate remains separate and is only run from Deep Research.",
+        )
+        if st.button("Refresh market data now", type="primary"):
+            with st.status("Refreshing dashboard cache...", expanded=True) as status:
+                st.write("Clearing broker, instrument, valuation, and recommendation caches.")
+                snapshot = refresh_market_data()
+                st.write("Rebuilding the recommendation workflow cache for this scope.")
+                recommendation_workflow(
+                    snapshot,
+                    candidates=candidates,
+                    include_defaults=include_defaults,
+                    include_llm=include_llm,
+                )
+                status.update(label="Dashboard cache refreshed.", state="complete", expanded=False)
         st.divider()
         st.metric("Mode", "Preview only")
         st.metric("Broker", snapshot.status)
@@ -54,18 +87,40 @@ def main() -> None:
         st.info(window.manual_refresh_hint)
         for warning in snapshot.warnings:
             st.warning(warning)
-        with st.expander("Advanced diagnostics"):
-            st.caption(
-                "Holdings, valuation, catalyst, rebalance, factor, and audit diagnostics are "
-                "kept as support modules. The MVP front door is the three-step review workflow."
-            )
+        st.caption("Advanced diagnostics are available from the Advanced page.")
 
     if page == "Overview":
         overview.render(snapshot)
+    elif page == "Screener":
+        screener.render(
+            snapshot,
+            candidates=candidates,
+            include_defaults=include_defaults,
+            include_llm=include_llm,
+        )
     elif page == "Recommendations":
-        recommendations.render(snapshot)
+        recommendations.render(
+            snapshot,
+            candidates=candidates,
+            include_defaults=include_defaults,
+            include_llm=include_llm,
+        )
+    elif page == "Deep Research":
+        research_review.render(
+            snapshot,
+            candidates=candidates,
+            include_defaults=include_defaults,
+            include_llm=include_llm,
+        )
+    elif page == "Preview":
+        preview.render(
+            snapshot,
+            candidates=candidates,
+            include_defaults=include_defaults,
+            include_llm=include_llm,
+        )
     else:
-        research_review.render(snapshot)
+        advanced.render(snapshot)
 
 
 if __name__ == "__main__":

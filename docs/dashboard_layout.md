@@ -1,10 +1,11 @@
 # Dashboard Layout
 
 The MVP dashboard is intentionally small. The primary operator workflow is:
-review account state, inspect one consolidated recommendation queue, run a deep
-research gate for any buy/add candidate, then generate preview-only sizing for
-eligible rows. Legacy holdings, valuation, catalyst, factor, rebalance, and
-audit views are kept as advanced diagnostics in code, not as front-stage tabs.
+review account state, inspect the screener funnel, review one consolidated
+recommendation queue, run a deep research gate for any buy/add candidate, then
+generate preview-only sizing for eligible rows. Legacy holdings, valuation,
+catalyst, factor, rebalance, and audit views are kept behind one Advanced page,
+not as front-stage tabs.
 
 All storage timestamps remain UTC. Streamlit converts display timestamps to
 Europe/London.
@@ -13,10 +14,13 @@ Europe/London.
 
 | Screen area | Primary widgets | Purpose | Key actions |
 | --- | --- | --- | --- |
-| Sidebar | Workflow selector, mode badge, broker status, environment, kill-switch indicator, London time, cache window, next scheduled refresh, broker warnings | Keep operational state visible before any analysis | Refresh market data manually, confirm preview-only mode, inspect warnings |
+| Sidebar | Workflow selector, screening scope, mode badge, broker status, environment, kill-switch indicator, London time, cache window, next scheduled refresh, broker warnings | Keep operational state visible before any analysis | Add manual symbols, include/exclude T212 scan, refresh market data manually, confirm preview-only mode, inspect warnings |
 | Overview | Account health, cash and invested value, 20% algo sleeve / 80% core sleeve summary, top holdings, concentration, currency exposure, unrealised P/L, next action | Let the operator understand current portfolio state without reading raw tables | Move to Recommendations when broker context is healthy; resolve broker warnings first |
-| Recommendations | One consolidated holdings and screener table with symbol, source, action, score, broker validation, research status, preview eligibility, blockers, next step, valuation and technical context, loading progress | Replace duplicated tabs/tables with one review queue for holdings and broad-market candidates | Run deep research for buy/add ideas, select eligible rows, build preview-only sizing |
+| Screener | Additive funnel, stage counts, removal reasons, passed/removed rows, top deep research candidates, loading progress | Show how the broad Trading 212 universe becomes a shortlist instead of hiding the workings | Inspect universe filters, evidence blockers, event vetoes, and shortlist candidates |
+| Recommendations | One consolidated holdings and screener table with symbol, source, action, score, broker validation, research status, preview eligibility, blockers, next step, valuation and technical context, score chart, loading progress | Replace duplicated tabs/tables with one review queue for holdings and broad-market candidates | Choose candidates for deep research or identify blockers before preview sizing |
 | Research Review | Candidate selector, current evidence, latest thesis, bull/base/bear targets, drivers, risks, evidence gaps, final score, decision, expiry, loading progress | Enforce OpenAI-backed thesis validation before buy/add preview sizing | Run deep research, inspect evidence gaps, accept only `RESEARCH_PASSED` rows into preview |
+| Preview | Eligible recommendations, not-yet-eligible blockers, preview-only sizing, target weights, notional estimates, cost estimates, warnings | Keep sizing and cost context separate from recommendation scoring and deep research | Select eligible rows and build preview-only sizing; no orders are submitted |
+| Advanced | Single diagnostic selector for holdings, valuation, catalysts, legacy rebalance, factor attribution, and audit logs | Preserve detail for audit/development without crowding the operator workflow | Inspect raw support tables when troubleshooting or validating data quality |
 
 ## Recommendation Queue Columns
 
@@ -34,22 +38,22 @@ Europe/London.
 
 | Diagnostic surface | Status | Why it is not front-stage |
 | --- | --- | --- |
-| Holdings table | Available as support module | The Overview already shows portfolio state; raw holding rows are for checking. |
-| Valuation page | Available as support module | Key valuation and technical fields now appear in the recommendation queue; deeper valuation remains useful for diagnostics. |
-| Catalysts page | Available as support module | Catalyst blockers surface in the recommendation queue; raw event feeds remain for validation. |
-| Rebalance page | Available as support module | The MVP path creates preview-only sizing from selected eligible recommendations. |
-| Factor attribution | Available as support module | Component scores are visible in the queue; full factor diagnostics remain for audit. |
-| Audit logs | Available as support module | Research reviews and preview attempts still persist audit records; raw audit browsing is not the first screen. |
+| Holdings table | Available through Advanced | The Overview already shows portfolio state; raw holding rows are for checking. |
+| Valuation page | Available through Advanced | Key valuation and technical fields now appear in the recommendation queue; deeper valuation remains useful for diagnostics. |
+| Catalysts page | Available through Advanced | Catalyst blockers surface in the screener and recommendation queue; raw event feeds remain for validation. |
+| Legacy rebalance page | Available through Advanced | The MVP path creates preview-only sizing from selected eligible recommendations. |
+| Factor attribution | Available through Advanced | Component scores are visible in the queue; full factor diagnostics remain for audit. |
+| Audit logs | Available through Advanced | Research reviews and preview attempts still persist audit records; raw audit browsing is not the first screen. |
 
 ## UI Roadmap
 
 | Phase | Status | Screens and widgets | Done when |
 | --- | --- | --- | --- |
-| 1. Simplify operator workflow | Done | Three-screen Streamlit shell: Overview, Recommendations, Research Review | Primary UI no longer presents repeated tables as separate tabs. |
+| 1. Simplify operator workflow | Done | Core Streamlit shell: Overview, Screener, Recommendations, Deep Research, Preview, Advanced | Primary UI no longer presents repeated tables as separate tabs. |
 | 2. Twice-daily dashboard cache | Done, then expand | Market-session cache keyed to London open and US open, ignored disk cache under `artifacts/dashboard_cache/`, manual refresh button, loading progress | Navigation and app restarts reuse cached broker/recommendation workflow data instead of rebuilding expensive feeds every page change. |
-| 3. T212 broker-universe screener | In progress | Recommendations queue sourced from Trading 212 metadata with YAML fallback | Live metadata can seed 250 instruments, filtered and capped to top 50 display rows. |
+| 3. T212 broker-universe screener | Done, then expand | Screener page sourced from Trading 212 metadata with YAML fallback and additive filter stages | Live metadata can seed 250 instruments, filtered and capped to top 50 display rows, with removal reasons visible. |
 | 4. Deep research gate | In progress | Research Review page and persisted review status in queue | BUY/add rows cannot become preview-eligible without non-expired `RESEARCH_PASSED`. |
-| 5. Recommendation-to-preview workflow | In progress | Selected eligible rows produce preview-only sizing and estimated costs | Preview rows show side, target weight, notional, costs, warnings, and blockers. |
+| 5. Recommendation-to-preview workflow | In progress | Dedicated Preview page for selected eligible rows and estimated costs | Preview rows show side, target weight, notional, costs, warnings, and blockers. |
 | 6. Paper reconciliation | Planned | Paper fill log, expected vs simulated fills, broker reconciliation comparison | Paper cycles can be reviewed and replayed before micro-live consideration. |
 | 7. Official-source enrichment | Planned | SEC, Companies House, RNS, NSM, FRED status and point-in-time diagnostics | Recommendation evidence shows official-source freshness and rejects look-ahead data. |
 

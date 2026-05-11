@@ -32,6 +32,10 @@ from isa_system.services.recommendation_handoff import (
     build_recommendation_handoff,
 )
 from isa_system.services.recommendations import RecommendationsResponse, build_recommendations
+from isa_system.services.screener_funnel import (
+    ScreenerFunnelResponse,
+    build_screener_funnel,
+)
 from isa_system.services.valuation import HoldingsValuationResponse, value_current_holdings
 from isa_system.settings import get_settings
 from isa_system.utils.hashing import sha256_digest
@@ -52,6 +56,7 @@ class RecommendationWorkflow:
     recommendations: RecommendationsResponse
     instrument_validation: InstrumentValidationResponse
     handoff: RecommendationHandoffResponse
+    screener_funnel: ScreenerFunnelResponse
 
 
 def cache_window() -> MarketCacheWindow:
@@ -220,6 +225,7 @@ def _recommendation_workflow_payload(
     )
     if cached_payload is not None:
         cached_payload["cache_source"] = "disk cache"
+        _ensure_screener_funnel_payload(cached_payload)
         return cached_payload
 
     snapshot = BrokerPortfolioSnapshot.model_validate(broker_payload)
@@ -241,6 +247,12 @@ def _recommendation_workflow_payload(
         instrument_validation=validation,
         research_reviews=reviews,
     )
+    funnel = build_screener_funnel(
+        response,
+        validation,
+        handoff,
+        universe_symbols=scan_universe.symbols,
+    )
     payload: dict[str, object] = {
         "cache_key": cache_key,
         "cache_source": "provider refresh",
@@ -251,6 +263,7 @@ def _recommendation_workflow_payload(
         "recommendations": response.model_dump(mode="json"),
         "instrument_validation": validation.model_dump(mode="json"),
         "handoff": handoff.model_dump(mode="json"),
+        "screener_funnel": funnel.model_dump(mode="json"),
     }
     _write_workflow_disk_cache(
         payload,
@@ -302,6 +315,7 @@ def recommendation_workflow(
             payload["instrument_validation"]
         ),
         handoff=RecommendationHandoffResponse.model_validate(payload["handoff"]),
+        screener_funnel=ScreenerFunnelResponse.model_validate(payload["screener_funnel"]),
     )
 
 
@@ -340,6 +354,29 @@ def _read_workflow_disk_cache(
     except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _ensure_screener_funnel_payload(payload: dict[str, object]) -> None:
+    """Backfill funnel data for dashboard caches written by older app versions."""
+
+    if "screener_funnel" in payload:
+        return
+    try:
+        response = RecommendationsResponse.model_validate(payload["recommendations"])
+        validation = InstrumentValidationResponse.model_validate(payload["instrument_validation"])
+        handoff = RecommendationHandoffResponse.model_validate(payload["handoff"])
+    except (KeyError, TypeError, ValueError):
+        return
+    symbols_payload = payload.get("scan_universe_symbols")
+    universe_symbols = (
+        [str(symbol) for symbol in symbols_payload] if isinstance(symbols_payload, list) else []
+    )
+    payload["screener_funnel"] = build_screener_funnel(
+        response,
+        validation,
+        handoff,
+        universe_symbols=universe_symbols,
+    ).model_dump(mode="json")
 
 
 def _write_workflow_disk_cache(

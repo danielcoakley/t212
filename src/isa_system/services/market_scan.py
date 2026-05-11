@@ -125,7 +125,7 @@ def load_broker_market_scan_universe(
         warnings.append(f"Trading 212 broker universe was capped at {max_loaded} instruments.")
 
     filters = _broker_filters(payload)
-    block_tickers = set(_normalise_symbols(payload.get("block_tickers")))
+    block_tickers = {symbol.upper() for symbol in _normalise_symbols(payload.get("block_tickers"))}
     symbols = _broker_research_symbols(limited, filters=filters, block_tickers=block_tickers)
     if len(symbols) > max_symbols:
         symbols = symbols[:max_symbols]

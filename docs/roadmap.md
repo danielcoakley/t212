@@ -23,12 +23,13 @@ research assessment pass.
 
 | Priority | Milestone | End-user result | Status |
 | --- | --- | --- | --- |
-| P0 | Simplify UI to three primary screens | Operator sees Overview, Recommendations, and Research Review instead of repeated tabs and duplicate tables. | Done |
+| P0 | Simplify UI to core workflow screens | Operator sees Overview, Screener, Recommendations, Deep Research, Preview, and one Advanced diagnostics area instead of repeated tabs and duplicate tables. | Done |
 | P0 | Add twice-daily dashboard cache and loading context | Expensive broker, screener, recommendation, validation, and research-gate context is cached around the London open and US open, persisted under ignored dashboard artefacts, with manual refresh and progress messages. | Done, then expand |
-| P0 | Use Trading 212 instrument metadata as broad scan seed | Recommendations can scan a broker-derived candidate universe, capped by config, with YAML fallback when metadata is unavailable. | In progress |
+| P0 | Use Trading 212 instrument metadata as broad scan seed | Screener can scan a broker-derived candidate universe, capped by config, with YAML fallback when metadata is unavailable. | Done, then expand |
+| P0 | Show additive screener workings | Operator can see universe count, scored rows, filter-stage pass/removal counts, removal reasons, and the final deep research shortlist. | Done |
 | P0 | Add consolidated recommendation queue | Holdings and screener candidates appear in one table with action, score, broker validation, blockers, research status, and preview eligibility. | Done |
 | P0 | Add deep research gate | BUY/add rows require a persisted, non-expired OpenAI-backed `RESEARCH_PASSED` review before preview sizing. | In progress |
-| P0 | Add recommendation-to-preview route | Selected eligible recommendations produce preview-only sizing, notional, costs, warnings, and blockers without submitting orders. | In progress |
+| P0 | Add recommendation-to-preview route and page | Selected eligible recommendations produce preview-only sizing, notional, costs, warnings, and blockers without submitting orders. | In progress |
 | P1 | Add paper reconciliation loop | Paper fills are persisted, reconciled, and compared with expected preview rows. | Planned |
 | P1 | Expand official point-in-time evidence | SEC, Companies House, LSE RNS, FCA NSM, and FRED evidence drives event validation and PIT factor joins. | Planned |
 | P2 | Guarded micro-live readiness | Live submission remains disabled unless arming, kill switch, idempotency, reconciliation, and operator runbook checks all pass. | Guarded |
@@ -38,7 +39,7 @@ research assessment pass.
 | Required functionality | Current status | Next action |
 | --- | --- | --- |
 | Live read-only Trading 212 portfolio | Done | Keep order endpoints guarded; improve metadata caching and diagnostics. |
-| Broad-market screener | In progress | Improve T212 universe filtering, liquidity evidence, stale-data flags, and top-candidate ranking. |
+| Broad-market screener | Done, then expand | Add richer liquidity evidence, stale-data flags, sector context, and rank-change history. |
 | Dashboard cache and loading state | Done, then expand | Add cache health diagnostics and stale-source alerts after the twice-daily memory/disk cache is proven. |
 | Recommendation MVP | Done, then expand | Add source freshness badges, rank changes, and official-source evidence alongside convenience metrics. |
 | Deep research assessment | In progress | Add richer evidence packets, expiry policy controls, and review comparison over time. |
@@ -46,7 +47,7 @@ research assessment pass.
 | Sentiment and news | Planned | Keep social feeds disabled by default; prioritise official announcements, PDMR dealing, and short disclosures. |
 | Catalysts and event vetoes | In progress | Tie UK RNS/NSM and SEC/Companies House event records into no-buy windows. |
 | Point-in-time correctness | In progress | Expand `available_at_utc` joins and tests across fundamentals and events. |
-| Rebalance preview | In progress | Accept selected research-passed candidates, estimate costs, and show sleeve/cash impact. |
+| Rebalance preview | In progress | Deepen sleeve/cash impact, sector exposure, and paper order comparison on the Preview page. |
 | Paper trading | Planned | Persist paper orders, fills, reconciliation, and audit events. |
 | Live trading | Guarded | Remain blocked until paper acceptance evidence and explicit user request. |
 
@@ -76,7 +77,7 @@ research assessment pass.
 
 | Month | Milestone | Included requirements | Exit criteria |
 | --- | --- | --- | --- |
-| Month 1 | MVP cockpit and research gate | Three-screen UI, twice-daily cache, T212 read-only context, broker-universe screener, consolidated recommendations, OpenAI deep research gate, preview-only hand-off | Operator can see account health, review candidates, run deep research, and create preview-only sizing without any order path or repeated slow reloads. |
+| Month 1 | MVP cockpit and research gate | Core workflow UI, twice-daily cache, T212 read-only context, broker-universe screener funnel, consolidated recommendations, OpenAI deep research gate, preview-only hand-off | Operator can see account health, inspect the screener workings, review candidates, run deep research, and create preview-only sizing without any order path or repeated slow reloads. |
 | Month 2 | Point-in-time research and paper workflow | Official-source ingestion, PIT joins, richer factors, catalyst vetoes, paper fills, reconciliation, audit replay | Paper cycles are repeatable and auditable; PIT tests reject future information. |
 | Month 3 | Guarded live readiness | Idempotency drills, kill-switch drills, broker reconciliation, runbook evidence, micro-live go/no-go checklist | Live remains disabled by default and is only considered after repeated paper acceptance evidence. |
 
@@ -87,9 +88,9 @@ gantt
     axisFormat  %d %b
 
     section Month 1 - MVP cockpit
-    Three-screen dashboard realignment       :done, m1a, 2026-05-11, 5d
+    Core dashboard workflow realignment      :done, m1a, 2026-05-11, 5d
     Twice-daily cache and progress UI        :done, m1cache, 2026-05-11, 4d
-    T212 broker-universe screener            :active, m1b, 2026-05-12, 8d
+    T212 broker-universe screener funnel     :done, m1b, 2026-05-12, 8d
     Deep research gate and persistence       :active, m1c, 2026-05-13, 8d
     Recommendation-to-preview workflow       :active, m1d, 2026-05-18, 8d
     Dashboard visual polish and QA           :m1e, 2026-05-22, 8d

@@ -16,7 +16,13 @@ from isa_system.services.recommendations import RecommendationAction, TradeRecom
 from isa_system.utils.time import to_london
 
 
-def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
+def render(
+    snapshot: BrokerPortfolioSnapshot | None = None,
+    *,
+    candidates: tuple[str, ...] = (),
+    include_defaults: bool = True,
+    include_llm: bool = False,
+) -> None:
     """Render selected-candidate thesis validation and research gate status."""
 
     snapshot = snapshot or broker_snapshot()
@@ -31,7 +37,12 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
         st.write("Loading the same cached recommendation workflow used by the queue.")
         progress.progress(30, text="Loading recommendations and broker validation.")
         try:
-            workflow = recommendation_workflow(snapshot, include_defaults=True, include_llm=False)
+            workflow = recommendation_workflow(
+                snapshot,
+                candidates=candidates,
+                include_defaults=include_defaults,
+                include_llm=include_llm,
+            )
         except Exception as exc:
             progress.progress(100, text="Research review context failed to load.")
             status.update(label="Research review context failed.", state="error")
@@ -53,22 +64,22 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
         st.write(f"Recommendation bundle source: {workflow.cache_source}.")
         progress.progress(100, text="Research review context ready.")
         status.update(label="Research review context ready.", state="complete", expanded=False)
-    candidates = [
+    review_candidates = [
         item
         for item in response.recommendations
         if item.action in {RecommendationAction.REVIEW_BUY, RecommendationAction.WATCH}
     ]
-    if not candidates:
+    if not review_candidates:
         st.info("No buy/watch candidates are available for deep research right now.")
         return
 
     selected_symbol = st.selectbox(
         "Candidate",
-        options=[item.candidate.research_symbol for item in candidates],
+        options=[item.candidate.research_symbol for item in review_candidates],
     )
     item = next(
         candidate
-        for candidate in candidates
+        for candidate in review_candidates
         if candidate.candidate.research_symbol == selected_symbol
     )
     validation_by_symbol = {row.research_symbol.upper(): row for row in validation.rows}
