@@ -423,6 +423,40 @@ notes because it was paused. The orchestrator added tests and commits for the
 salvaged slices. Continue future parallel work only in explicit worktree
 directories.
 
+### 2026-05-11 - Dirac Pilot Paper Workflow
+
+What changed: Added a schema-light pilot paper workflow shell that links
+selected recommendation preview rows to the notional paper simulation snapshot,
+reports expected-vs-simulated status per row, keeps blocked rows visible, and
+states that paper output is not persisted or reconciled. Exposed the shell via a
+side-effect-free recommendation workflow API route and rendered it after
+preview-only sizing in the Streamlit Preview page.
+
+What remains: Persist paper intents/fills and reconciliation records in a later
+schema-scoped slice; add broker quote, lot-size, and actual fill comparison when
+paper persistence exists.
+
+Files touched:
+
+- `src/isa_system/services/pilot_workflow.py`
+- `src/isa_system/api/routers/rebalances.py`
+- `src/isa_system/dashboard/pages/preview.py`
+- `tests/unit/test_pilot_workflow.py`
+- `tests/integration/test_mvp_realignment_api.py`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_paper_simulation.py tests/unit/test_pilot_workflow.py tests/integration/test_mvp_realignment_api.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The new route reuses the existing recommendation preview
+pipeline and does not submit orders, arm live trading, or add persistence. Merge
+with recommendation-display work may need a small Preview page conflict
+resolution if both branches edited the post-preview rendering area.
+
 ### 2026-05-11 - Tesla Management Diagnostics
 
 What changed: Expanded the read-only Management page into a clearer operational

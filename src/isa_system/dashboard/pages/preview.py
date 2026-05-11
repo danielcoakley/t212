@@ -8,6 +8,10 @@ import pandas as pd
 import streamlit as st
 
 from isa_system.dashboard.data import broker_snapshot, recommendation_workflow
+from isa_system.services.pilot_workflow import (
+    PilotPaperWorkflowSummary,
+    build_pilot_paper_workflow,
+)
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
 from isa_system.services.recommendation_preview import (
     RecommendationPreviewResponse,
@@ -125,6 +129,32 @@ def _render_preview(preview: RecommendationPreviewResponse) -> None:
     )
     for warning in preview.warnings:
         st.warning(warning)
+    _render_pilot_workflow(build_pilot_paper_workflow(preview))
+
+
+def _render_pilot_workflow(workflow: PilotPaperWorkflowSummary) -> None:
+    st.subheader("Pilot Paper Workflow")
+    cols = st.columns(4)
+    cols[0].metric(
+        "Expected vs simulated",
+        _label(workflow.expected_vs_simulated_status),
+    )
+    cols[1].metric("Simulated fills", str(workflow.simulated_fill_count))
+    cols[2].metric(
+        "Paper notional",
+        f"GBP {workflow.paper_simulation.estimated_notional:,.2f}",
+    )
+    cols[3].metric("Persistence", _label(workflow.persistence_status))
+    st.dataframe(
+        pd.DataFrame([row.model_dump(mode="json") for row in workflow.rows]),
+        width="stretch",
+        hide_index=True,
+    )
+    st.info(workflow.next_action)
+    with st.expander("Paper simulation snapshot", expanded=False):
+        st.json(workflow.paper_simulation.model_dump(mode="json"))
+    for warning in workflow.warnings:
+        st.warning(warning)
 
 
 def _handoff_rows_frame(rows: list[Any]) -> pd.DataFrame:
@@ -150,6 +180,10 @@ def _handoff_config() -> dict[str, Any]:
         "blockers": st.column_config.TextColumn("Blockers"),
         "next_step": st.column_config.TextColumn("Next step"),
     }
+
+
+def _label(value: str) -> str:
+    return value.replace("_", " ").title()
 
 
 if __name__ == "__main__":

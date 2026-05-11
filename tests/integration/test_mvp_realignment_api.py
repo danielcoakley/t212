@@ -218,6 +218,96 @@ def test_recommendation_preview_endpoint_is_preview_only(
     assert payload["rows"][0]["eligible"] is True
 
 
+def test_pilot_workflow_endpoint_links_preview_to_paper_simulation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pilot workflow route is side-effect free and returns paper comparison shell."""
+
+    def fake_recommendations(
+        snapshot: object,
+        candidates: list[str],
+        include_default_candidates: bool,
+        default_candidates: list[str],
+        include_llm_rationale: bool,
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            recommendations=[SimpleNamespace(candidate=SimpleNamespace(research_symbol="GOOD.L"))]
+        )
+
+    def fake_preview(
+        selected_symbols: list[str],
+        snapshot: object,
+        handoff: object,
+        total_equity_gbp: object,
+    ) -> RecommendationPreviewResponse:
+        return RecommendationPreviewResponse(
+            generated_at_utc=datetime(2026, 5, 10, tzinfo=UTC),
+            total_equity_gbp=10000.0,
+            selected_count=1,
+            eligible_count=1,
+            estimated_total_cost_gbp=12.5,
+            rows=[
+                RecommendationPreviewRow(
+                    symbol="GOOD.L",
+                    research_symbol="GOOD.L",
+                    broker_ticker="GOODl_EQ",
+                    side="BUY",
+                    eligible=True,
+                    target_weight=0.04,
+                    estimated_notional_gbp=400.0,
+                    estimated_total_cost_gbp=12.5,
+                    research_review_status="RESEARCH_PASSED",
+                    rationale="Preview-only sizing.",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(
+        "isa_system.api.routers.rebalances.load_trading212_portfolio",
+        lambda: object(),
+    )
+    monkeypatch.setattr(
+        "isa_system.api.routers.rebalances.load_broker_market_scan_universe",
+        lambda: type("Universe", (), {"symbols": ["GOOD.L"]})(),
+    )
+    monkeypatch.setattr(
+        "isa_system.api.routers.rebalances.build_recommendations",
+        fake_recommendations,
+    )
+    monkeypatch.setattr(
+        "isa_system.api.routers.rebalances.validate_recommendation_instruments",
+        lambda recommendations: object(),
+    )
+    monkeypatch.setattr(
+        "isa_system.api.routers.rebalances.latest_deep_research_reviews",
+        lambda symbols: {},
+    )
+    monkeypatch.setattr(
+        "isa_system.api.routers.rebalances.build_recommendation_handoff",
+        lambda recommendations, instrument_validation, research_reviews: object(),
+    )
+    monkeypatch.setattr(
+        "isa_system.api.routers.rebalances.build_preview_from_recommendation_handoff",
+        fake_preview,
+    )
+
+    response = TestClient(app).post(
+        "/rebalances/from-recommendations/pilot-workflow",
+        json={"symbols": ["GOOD.L"], "total_equity_gbp": 10000},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["mode"] == "preview"
+    assert payload["workflow_status"] == "ready_for_operator_review"
+    assert payload["expected_vs_simulated_status"] == "all_expected_rows_simulated"
+    assert payload["persistence_status"] == "not_persisted"
+    assert payload["reconciliation_status"] == "not_available"
+    assert payload["paper_simulation"]["source_kind"] == "recommendation_preview"
+    assert payload["rows"][0]["expected_vs_simulated_status"] == "matched"
+    assert any("Live broker submission" in warning for warning in payload["warnings"])
+
+
 def _review(symbol: str) -> DeepResearchReview:
     generated = datetime(2026, 5, 10, tzinfo=UTC)
     return DeepResearchReview(
