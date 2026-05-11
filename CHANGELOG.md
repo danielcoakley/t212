@@ -17,6 +17,12 @@ All notable project changes should be recorded here.
 - Added recommendation queue scan columns for review state, broker/research
   gates, evidence coverage, and source caveats.
 - Added notional-only paper simulation support for recommendation preview rows.
+- Added offline MVP guardrail regression tests for preview-only workflow,
+  blocked live submit, missing providers, and management helper safety rows.
+- Expanded the Management page with provider readiness, cache freshness,
+  broker read-only state, live guardrails, and next safe action diagnostics.
+- Added a schema-light pilot paper workflow summary service, API route, and
+  Preview page display for expected-vs-simulated paper evidence.
 
 ### Fixed
 
@@ -25,10 +31,9 @@ All notable project changes should be recorded here.
   work in split commits and moving ongoing work into explicit isolated
   worktrees.
 
-### In Progress
+### Next
 
-- Management diagnostics phase 2.
-- Local onboarding and pilot setup.
-- Recommendation display UX and evidence clarity.
-- Pilot paper workflow shell.
-- MVP QA and route guardrails.
+- Provider/source freshness visibility.
+- Paper order intent and simulated fill persistence.
+- Operator report export shell.
+- Instrument identity mapping for broker ticker, research symbol, and ISIN.

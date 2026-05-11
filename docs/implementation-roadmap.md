@@ -12,17 +12,16 @@ The codebase is a local-first Python 3.12 application with:
 | Area | Current implementation |
 | --- | --- |
 | Backend API | FastAPI app in `src/isa_system/api/main.py` with routers for health, configs, portfolio, recommendations, research reviews, valuation, rebalance preview, modes, orders, metrics, backtests, and audit. |
-| Dashboard | Streamlit app in `src/isa_system/dashboard/app.py` with front-stage workflow pages: Overview, Screener, Recommendations, Deep Research, Preview, and Advanced diagnostics. |
+| Dashboard | Streamlit app in `src/isa_system/dashboard/app.py` with front-stage workflow pages: Overview, Screener, Recommendations, Deep Research, Preview, Management, and Advanced diagnostics. |
 | Data and providers | Provider adapters under `src/isa_system/data/providers`, including Trading 212, yfinance, Alpha Vantage, FMP, SEC EDGAR, Companies House, LSE RNS, FCA NSM, FRED, Reddit, and X stubs/adapters. |
 | Storage | SQLAlchemy operational DB models in `src/isa_system/db/models.py`, Alembic migrations, and DuckDB/Parquet lake helpers under `src/isa_system/lake`. |
 | Strategy and risk | Factors, ranking, constraints, cost model, rebalancer, recommendation services, screener funnel, deep research gate, and recommendation-to-preview hand-off. |
 | Execution controls | Runtime mode state, guarded live arming, local idempotency keys, Trading 212 client, paper broker, and preview-only sizing. |
 | Auth and permissions | No user auth yet. Local-only binding and preview/live controls are the current safety boundary. |
-| Reporting | Smoke-test artifacts, backtest services, valuation charts, recommendation charts, audit log pages, and API outputs exist, but no polished operator report export yet. |
-| Release notes | Git history exists; no `CHANGELOG.md` or root `TODO.md` is present in this worktree. |
+| Reporting | Smoke-test artifacts, backtest services, valuation charts, recommendation charts, audit log pages, paper workflow summaries, and API outputs exist, but no polished operator report export yet. |
+| Release notes | Git history, `CHANGELOG.md`, `TODO.md`, `AGENTS.md`, and coordination docs now track MVP execution. |
 
-No `AGENTS.md`, root `ROADMAP.md`, root `TODO.md`, root `CHANGELOG.md`, or
-`package.json` was present when this roadmap was created. `pyproject.toml` is
+No `package.json` is present; this is a Python project and `pyproject.toml` is
 the package manifest.
 
 ## Product Direction
@@ -44,16 +43,16 @@ The current MVP goal is:
 
 | Priority | Feature | Current state | Next implementation step |
 | --- | --- | --- | --- |
-| P0 | Operator cockpit workflow | Mostly implemented in Streamlit | Add a first-class Management page for mode, kill switch, cache, provider, and safety-control visibility. |
-| P0 | Broker-readable portfolio and universe | Read-only account/positions and instrument metadata support exist | Add clearer freshness, rate-limit, and metadata diagnostics. |
-| P0 | Recommendation queue and hand-off | Implemented with broker validation and research status | Tighten queue acceptance criteria, source freshness badges, and rank-change history. |
+| P0 | Operator cockpit workflow | Implemented in Streamlit with Management visibility | Continue simplifying workflow labels and empty/error states. |
+| P0 | Broker-readable portfolio and universe | Read-only account/positions and instrument metadata support exist | Add clearer freshness, rate-limit, and identity diagnostics. |
+| P0 | Recommendation queue and hand-off | Implemented with broker validation, research status, and review-state columns | Add source freshness badges and rank-change history. |
 | P0 | Deep research gate | Implemented and persisted; OpenAI key absent means no buy approval | Improve evidence packets, expiry controls, and comparison between current and previous reviews. |
-| P0 | Preview-only sizing | Implemented for selected eligible recommendations | Add quantity estimates, cash impact, exposure limits, and paper-order comparison. |
-| P0 | Safety management | Partially implemented through API mode routes and sidebar status | Surface controls and blockers in a dedicated dashboard management page before adding live workflow depth. |
-| P1 | Paper trading loop | Paper broker and simulation exist, persistence/reconciliation still thin | Persist paper order intents, fills, expected-vs-actual rows, and replayable paper cycles. |
+| P0 | Preview-only sizing | Implemented for selected eligible recommendations, with pilot paper workflow shell | Add quantity estimates, cash impact, exposure limits, and persisted paper comparison. |
+| P0 | Safety management | Implemented as read-only Management diagnostics plus API mode routes and sidebar status | Add richer status APIs only where they reduce dashboard coupling. |
+| P1 | Paper trading loop | Paper broker, simulation, and workflow summary exist; persistence/reconciliation still thin | Persist paper order intents, fills, expected-vs-actual rows, and replayable paper cycles. |
 | P1 | Official UK evidence | Provider adapters/stubs exist | Prioritise Companies House identity, FCA NSM/RNS event tags, PDMR dealing, and short-interest parser versioning. |
 | P1 | Point-in-time identity mapping | Instrument registry exists; issuer identity is incomplete | Add explicit broker ticker, research symbol, ISIN, LEI, company number mapping with confidence and manual override. |
-| P1 | Reporting and release notes | Basic charts and audit pages exist | Add run summary export and `CHANGELOG.md` once workflow slices stabilize. |
+| P1 | Reporting and release notes | Basic charts, audit pages, and changelog exist | Add run summary export once workflow slices stabilize. |
 
 ## Post-MVP Features
 
@@ -79,15 +78,14 @@ The current MVP goal is:
 
 ## Suggested Implementation Order
 
-1. Add management console skeleton in Streamlit.
-2. Add source freshness and provider health diagnostics to recommendation and management surfaces.
-3. Persist paper order intents and simulated fills.
+1. Add source freshness and provider health diagnostics to recommendation and management surfaces.
+2. Persist paper order intents and simulated fills.
+3. Add operator report export shell for pilot evidence.
 4. Add paper reconciliation dashboard section.
 5. Add identity mapping table/service for broker ticker, research symbol, ISIN, LEI, and company number.
 6. Add official-source event ingestion depth for Companies House and FCA NSM/RNS.
 7. Expand catalyst tags and point-in-time tests.
-8. Add report export and release-note discipline.
-9. Revisit auth and hosted deployment only after local workflow evidence is strong.
+8. Revisit auth and hosted deployment only after local workflow evidence is strong.
 
 ## Dependencies And Risks
 
@@ -348,4 +346,3 @@ Prompt:
 ```text
 You are a Codex agent on the documentation and release notes workstream. Read all docs plus recent git history. Update docs to reflect actual implementation status, add a concise changelog/TODO structure only if useful, and keep docs aligned with code. Do not make feature code changes unless they are required to fix broken doc references. Add handoff notes.
 ```
-

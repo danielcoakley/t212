@@ -7,9 +7,7 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 
 | Priority | Task | Owner | Branch/worktree | Status |
 | --- | --- | --- | --- | --- |
-| P0 | Management diagnostics phase 2 | Tesla | `codex/management-diagnostics` | Active in isolated worktree |
-| P0 | MVP QA and route guardrails | Zeno | `codex/mvp-qa-guardrails-2` | Active in isolated worktree |
-| P1 | Pilot paper workflow shell | Meitner | `codex/pilot-paper-workflow` | Active in isolated worktree |
+| P0 | First isolated worker batch integration | Orchestrator | `codex/parallel-partial-integration` | Integrated; full checks passing |
 
 ## Completed This Cycle
 
@@ -18,16 +16,19 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 | Local onboarding and pilot setup | `6248cca` | Added local first-run docs, safer provider setup notes, and pilot checklist. |
 | Recommendation display UX and evidence clarity | `2c3f050` | Added review-state, broker/research gate, evidence coverage, and source caveat columns. |
 | Notional recommendation paper preview simulation | `eb33f30` | Added notional-only recommendation preview paper simulation helper and tests. |
+| MVP QA and route guardrails | `1f2e6ea` | Added offline regression coverage for preview-only and no-live-submit guardrails. |
+| Management diagnostics phase 2 | `2d6b47d` | Expanded the read-only Management page into an operational status surface. |
+| Pilot paper workflow shell | `1e1e5c7` | Added a side-effect-free pilot paper workflow summary service, API route, and Preview page display. |
 
 ## Next Queue
 
 | Priority | Task | Why next |
 | --- | --- | --- |
-| P1 | Integrate isolated worker branches in recommended merge order | Stabilise parallel work and resolve handoff notes. |
 | P1 | Add provider/source freshness to recommendation and management surfaces | Improves operator trust before deeper paper or live work. |
 | P1 | Persist paper order intents and simulated fills | Required before any credible micro-live readiness review. |
+| P1 | Add report export shell | Turns preview/research/paper summaries into auditable pilot evidence. |
 | P1 | Add identity mapping slice for broker ticker, research symbol, and ISIN | Reduces the main instrument mismatch risk. |
-| P2 | Add report export shell | Useful after paper workflow data exists. |
+| P2 | Add dashboard smoke/visual QA notes for Management, Recommendations, and Preview | Catches Streamlit rendering regressions outside pure unit tests. |
 
 ## Deferred
 

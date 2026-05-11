@@ -13,22 +13,27 @@ management visibility come before any deeper live execution work.
 | Workstream | Owner | Branch/worktree name | Status |
 | --- | --- | --- | --- |
 | Documentation and coordination | Current orchestrator | `codex/mvp-roadmap-orchestration` | Completed baseline |
-| Management console / admin area | Current orchestrator | `codex/mvp-roadmap-orchestration` | Completed first slice |
+| Management console / admin area | Current orchestrator / Tesla | `codex/parallel-partial-integration` | Completed first two slices |
 | UI/UX consistency and simplification | Unassigned | `codex/ui-cockpit-simplification` | Pending |
 | Local onboarding and pilot setup | Hypatia / orchestrator | `codex/parallel-partial-integration` | Completed first slice |
-| Pilot customer workflow | Meitner | `codex/pilot-paper-workflow` | Active in isolated worktree |
+| Pilot customer workflow | Meitner | `codex/parallel-partial-integration` | Completed workflow shell |
 | Portfolio and instrument data model | Unassigned | `codex/identity-mapping` | Pending |
 | Recommendation engine / agent output | Russell / orchestrator | `codex/parallel-partial-integration` | Completed display slice |
 | Report generation | Unassigned | `codex/report-generation` | Pending |
 | Auth, roles, permissions | Unassigned | `codex/auth-permission-design` | Pending |
-| Testing, QA, deployment readiness | Zeno | `codex/mvp-qa-guardrails-2` | Active in isolated worktree |
-| Management diagnostics phase 2 | Tesla | `codex/management-diagnostics` | Active in isolated worktree |
+| Testing, QA, deployment readiness | Zeno | `codex/parallel-partial-integration` | Completed guardrail slice |
+| Management diagnostics phase 2 | Tesla | `codex/parallel-partial-integration` | Integrated |
 
 ## Parallel Execution Plan
 
 This plan selects the next five practical MVP workstreams for separate Codex
 execution agents. The selection favours operator readiness, workflow clarity,
 pilot evidence, and regression protection over deeper enterprise architecture.
+
+Status update: the first isolated worker batch has been integrated into
+`codex/parallel-partial-integration` in the recommended order: QA guardrails,
+management diagnostics, then pilot paper workflow shell. Full tests and lint are
+green after integration.
 
 ### Selected Workstreams
 
@@ -67,6 +72,23 @@ This order puts test coverage first, lands the operational status surface
 before docs point to it, then merges user-facing recommendation and pilot flow
 changes. If QA tests depend on a later feature branch, split them so baseline
 guardrails merge first and feature-specific tests travel with the feature.
+
+### Next Parallel Batch
+
+The next safest batch should start from `codex/parallel-partial-integration`
+after the first worker batch is merged. These streams are intentionally scoped
+to keep MVP delivery ahead of speculative architecture:
+
+| Priority | Workstream | Branch/worktree | Likely files/directories | Acceptance criteria | Conflict risk |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Paper persistence thin slice | `codex/paper-intent-persistence` | `src/isa_system/db/models.py`, `alembic/versions`, `src/isa_system/services/pilot_workflow.py`, `src/isa_system/api/routers/rebalances.py`, `tests/unit`, `tests/integration` | Preview/pilot rows can be saved as paper intents and simulated fills with replayable IDs. No live broker submit semantics change. Migration impact is documented. | Moderate to high; owns persistence and pilot workflow files. |
+| 2 | Operator report export shell | `codex/operator-report-shell` | `src/isa_system/services`, `src/isa_system/api/routers`, `src/isa_system/dashboard/pages`, `tests/unit`, `docs` | A side-effect-free report summary can aggregate account/recommendation/research/preview/paper status into JSON or Markdown-ready sections. Missing data is explicit. | Moderate; avoid persistence files owned by paper slice. |
+| 3 | Source freshness diagnostics | `codex/source-freshness-diagnostics` | `src/isa_system/dashboard/pages/recommendations.py`, `src/isa_system/dashboard/pages/management.py`, `src/isa_system/dashboard/cache_policy.py`, `tests/unit` | Recommendation and Management surfaces expose cache/source age, provider gaps, and stale warnings without changing scoring. | Moderate; coordinate with report shell before editing dashboard pages. |
+| 4 | Identity mapping diagnostics | `codex/identity-diagnostics` | `src/isa_system/services/instrument_validation.py`, `src/isa_system/dashboard/pages/recommendations.py`, `tests/unit`, `docs` | Broker ticker, research symbol, ISIN, and validation confidence are easier to inspect before schema-heavy identity mapping. | Moderate; avoid migrations unless separately approved. |
+
+Recommended merge order for the next batch: source freshness diagnostics,
+identity diagnostics, report export shell, then paper persistence. If paper
+persistence introduces migrations, merge it last after a full integration pass.
 
 ### Exact Execution Prompts
 
