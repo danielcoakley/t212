@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+from isa_system.data.providers.trading212 import Trading212Instrument
+from isa_system.services.instrument_validation import validate_recommendation_instruments
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot, BrokerPosition
 from isa_system.services.recommendation_handoff import (
     HandoffStatus,
@@ -76,6 +78,43 @@ def test_market_scan_review_buy_needs_broker_validation() -> None:
     assert row.proposed_preview_action == "BUY"
     assert "BROKER_INSTRUMENT_VALIDATION_REQUIRED" in row.blockers
     assert handoff.review_required_count == 1
+
+
+def test_market_scan_review_buy_uses_broker_validation_context() -> None:
+    """A broker-matched discovery idea moves on to official and liquidity review."""
+
+    response = build_recommendations_from_static_data(
+        _snapshot(positions=[]),
+        {
+            "GOOD.L": _provider_row(
+                "GOOD.L",
+                valuation=ValuationMetrics(
+                    trailing_pe=8.0,
+                    forward_pe=7.0,
+                    price_to_book=1.0,
+                    dividend_yield=0.05,
+                ),
+                closes=_rising_closes(260),
+            )
+        },
+        candidates=["GOOD.L"],
+        include_default_candidates=False,
+        as_of_utc=datetime(2026, 5, 10, tzinfo=UTC),
+    )
+    validation = validate_recommendation_instruments(
+        response,
+        instruments=[Trading212Instrument(ticker="GOODl_EQ", currencyCode="GBX", type="STOCK")],
+    )
+
+    handoff = build_recommendation_handoff(response, instrument_validation=validation)
+    row = handoff.rows[0]
+
+    assert row.handoff_status == HandoffStatus.REVIEW_REQUIRED
+    assert row.instrument_validation_status == "BROKER_MATCHED"
+    assert row.broker_ticker == "GOODl_EQ"
+    assert "BROKER_INSTRUMENT_VALIDATION_REQUIRED" not in row.blockers
+    assert "OFFICIAL_SOURCE_VALIDATION_REQUIRED" in row.blockers
+    assert "ISA_LIQUIDITY_REVIEW_REQUIRED" in row.blockers
 
 
 def test_blocked_recommendation_does_not_hand_off_to_preview() -> None:

@@ -57,10 +57,10 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
         include_llm=include_llm,
     )
     frame = recommendation_frame(response)
-    handoff = build_recommendation_handoff(response)
-    handoff_rows = handoff_frame(handoff)
     instrument_validation = validate_recommendation_instruments(response)
     instrument_rows = instrument_validation_frame(instrument_validation)
+    handoff = build_recommendation_handoff(response, instrument_validation=instrument_validation)
+    handoff_rows = handoff_frame(handoff)
 
     render_recommendation_summary(response, frame)
 

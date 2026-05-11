@@ -76,7 +76,8 @@ def recommendation_handoff(
         include_default_candidates=include_defaults,
         include_llm_rationale=False,
     )
-    return build_recommendation_handoff(response)
+    instrument_validation = validate_recommendation_instruments(response)
+    return build_recommendation_handoff(response, instrument_validation=instrument_validation)
 
 
 @router.get("/instrument-validation", response_model=InstrumentValidationResponse)

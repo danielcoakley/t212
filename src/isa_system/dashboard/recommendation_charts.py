@@ -169,6 +169,8 @@ def handoff_frame(response: RecommendationHandoffResponse) -> pd.DataFrame:
                 "preview_action": payload["proposed_preview_action"],
                 "handoff_status": payload["handoff_status"],
                 "composite_score": payload["composite_score"],
+                "instrument_validation_status": payload.get("instrument_validation_status"),
+                "broker_ticker": payload.get("broker_ticker"),
                 "reason": payload["reason"],
                 "blockers": ", ".join(payload.get("blockers") or []),
                 "next_step": payload["next_step"],
@@ -180,11 +182,17 @@ def handoff_frame(response: RecommendationHandoffResponse) -> pd.DataFrame:
 def render_handoff_summary(response: RecommendationHandoffResponse, frame: pd.DataFrame) -> None:
     """Render hand-off readiness metrics and warnings."""
 
-    cols = st.columns(4)
+    broker_matched = (
+        int((frame["instrument_validation_status"] == "BROKER_MATCHED").sum())
+        if not frame.empty and "instrument_validation_status" in frame
+        else 0
+    )
+    cols = st.columns(5)
     cols[0].metric("Preview eligible", str(response.eligible_count))
     cols[1].metric("Needs validation", str(response.review_required_count))
     cols[2].metric("Blocked", str(response.blocked_count))
-    cols[3].metric("Rows", str(len(frame)))
+    cols[3].metric("Broker matched", str(broker_matched))
+    cols[4].metric("Rows", str(len(frame)))
     generated = to_london(response.generated_at_utc)
     st.caption(
         f"Hand-off generated from {response.provider} at "
@@ -214,6 +222,8 @@ def render_handoff_chart(frame: pd.DataFrame) -> None:
                 alt.Tooltip("recommendation_action:N", title="Recommendation"),
                 alt.Tooltip("preview_action:N", title="Preview action"),
                 alt.Tooltip("handoff_status:N", title="Status"),
+                alt.Tooltip("instrument_validation_status:N", title="Broker validation"),
+                alt.Tooltip("broker_ticker:N", title="Broker ticker"),
                 alt.Tooltip("blockers:N", title="Blockers"),
             ],
         )
@@ -240,6 +250,8 @@ def render_handoff_table(frame: pd.DataFrame) -> None:
             "preview_action": st.column_config.TextColumn("Preview action"),
             "handoff_status": st.column_config.TextColumn("Hand-off status"),
             "composite_score": st.column_config.NumberColumn("Composite", format="%.2f"),
+            "instrument_validation_status": st.column_config.TextColumn("Broker validation"),
+            "broker_ticker": st.column_config.TextColumn("Broker ticker"),
             "reason": st.column_config.TextColumn("Reason"),
             "blockers": st.column_config.TextColumn("Blockers"),
             "next_step": st.column_config.TextColumn("Next step"),
