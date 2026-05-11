@@ -17,9 +17,11 @@ management visibility come before any deeper live execution work.
 | UI/UX consistency and simplification | Unassigned | `codex/ui-cockpit-simplification` | Pending |
 | Local onboarding and pilot setup | Hypatia / orchestrator | `codex/parallel-partial-integration` | Completed first slice |
 | Pilot customer workflow | Meitner | `codex/parallel-partial-integration` | Completed workflow shell |
+| Paper persistence thin slice | Unassigned | `codex/paper-intent-persistence` | Queued for next isolated batch |
 | Portfolio and instrument data model | Unassigned | `codex/identity-mapping` | Pending |
+| Source freshness diagnostics | Unassigned | `codex/source-freshness-diagnostics` | Queued for next isolated batch |
 | Recommendation engine / agent output | Russell / orchestrator | `codex/parallel-partial-integration` | Completed display slice |
-| Report generation | Unassigned | `codex/report-generation` | Pending |
+| Report generation | Unassigned | `codex/operator-report-shell` | Queued for next isolated batch |
 | Auth, roles, permissions | Unassigned | `codex/auth-permission-design` | Pending |
 | Testing, QA, deployment readiness | Zeno | `codex/parallel-partial-integration` | Completed guardrail slice |
 | Management diagnostics phase 2 | Tesla | `codex/parallel-partial-integration` | Integrated |
