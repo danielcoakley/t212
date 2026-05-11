@@ -124,6 +124,77 @@ def render_component_heatmap(frame: pd.DataFrame) -> None:
     )
 
 
+def recommendation_evidence_frame(response: RecommendationsResponse) -> pd.DataFrame:
+    """Flatten raw evidence used by recommendation scores."""
+
+    rows: list[dict[str, Any]] = []
+    for item in response.recommendations:
+        payload = item.model_dump(mode="json")
+        candidate = payload["candidate"]
+        valuation = payload["valuation"]
+        technicals = payload["technicals"]
+        rows.append(
+            {
+                "research_symbol": candidate["research_symbol"],
+                "source": candidate["source"],
+                "action": payload["action"],
+                "trailing_pe": valuation.get("trailing_pe"),
+                "forward_pe": valuation.get("forward_pe"),
+                "price_to_book": valuation.get("price_to_book"),
+                "dividend_yield": valuation.get("dividend_yield"),
+                "beta": valuation.get("beta"),
+                "sma50": technicals.get("sma50"),
+                "sma200": technicals.get("sma200"),
+                "rsi14": technicals.get("rsi14"),
+                "momentum_1m": technicals.get("momentum_1m"),
+                "momentum_3m": technicals.get("momentum_3m"),
+                "momentum_6m": technicals.get("momentum_6m"),
+                "momentum_12m": technicals.get("momentum_12m"),
+                "events": len(payload.get("upcoming_events") or []),
+                "news_items": len(payload.get("news") or []),
+                "sentiment": (payload.get("sentiment") or {}).get("label"),
+                "sentiment_score": (payload.get("sentiment") or {}).get("score"),
+                "warnings": "; ".join(payload.get("warnings") or []),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def render_recommendation_evidence_table(frame: pd.DataFrame) -> None:
+    """Render raw valuation, technical, sentiment, and catalyst evidence."""
+
+    if frame.empty:
+        st.info("No recommendation evidence is available.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "research_symbol": st.column_config.TextColumn("Research symbol"),
+            "source": st.column_config.TextColumn("Source"),
+            "action": st.column_config.TextColumn("Action"),
+            "trailing_pe": st.column_config.NumberColumn("Trailing P/E", format="%.2f"),
+            "forward_pe": st.column_config.NumberColumn("Forward P/E", format="%.2f"),
+            "price_to_book": st.column_config.NumberColumn("P/B", format="%.2f"),
+            "dividend_yield": st.column_config.NumberColumn("Dividend yield", format="%.2%"),
+            "beta": st.column_config.NumberColumn("Beta", format="%.2f"),
+            "sma50": st.column_config.NumberColumn("SMA50", format="%.2f"),
+            "sma200": st.column_config.NumberColumn("SMA200", format="%.2f"),
+            "rsi14": st.column_config.NumberColumn("RSI14", format="%.1f"),
+            "momentum_1m": st.column_config.NumberColumn("1m momentum", format="%.2%"),
+            "momentum_3m": st.column_config.NumberColumn("3m momentum", format="%.2%"),
+            "momentum_6m": st.column_config.NumberColumn("6m momentum", format="%.2%"),
+            "momentum_12m": st.column_config.NumberColumn("12m momentum", format="%.2%"),
+            "events": st.column_config.NumberColumn("Events", format="%d"),
+            "news_items": st.column_config.NumberColumn("News", format="%d"),
+            "sentiment": st.column_config.TextColumn("Sentiment"),
+            "sentiment_score": st.column_config.NumberColumn("Sentiment score", format="%.2f"),
+            "warnings": st.column_config.TextColumn("Warnings"),
+        },
+    )
+
+
 def render_recommendation_table(frame: pd.DataFrame) -> None:
     """Render recommendations as a review queue."""
 

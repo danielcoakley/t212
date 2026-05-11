@@ -8,6 +8,7 @@ from isa_system.dashboard.data import broker_snapshot, recommendations
 from isa_system.dashboard.recommendation_charts import (
     handoff_frame,
     instrument_validation_frame,
+    recommendation_evidence_frame,
     recommendation_frame,
     render_action_chart,
     render_component_heatmap,
@@ -16,6 +17,7 @@ from isa_system.dashboard.recommendation_charts import (
     render_handoff_table,
     render_instrument_validation_summary,
     render_instrument_validation_table,
+    render_recommendation_evidence_table,
     render_recommendation_summary,
     render_recommendation_table,
 )
@@ -60,6 +62,7 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
         include_llm=include_llm,
     )
     frame = recommendation_frame(response)
+    evidence_rows = recommendation_evidence_frame(response)
     instrument_validation = validate_recommendation_instruments(response)
     instrument_rows = instrument_validation_frame(instrument_validation)
     handoff = build_recommendation_handoff(response, instrument_validation=instrument_validation)
@@ -92,6 +95,13 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
 
     st.subheader("Component Score Heatmap")
     render_component_heatmap(frame)
+
+    st.subheader("Evidence Context")
+    st.caption(
+        "Raw valuation, technical, sentiment/news, and catalyst fields used by the "
+        "review-only recommendation score."
+    )
+    render_recommendation_evidence_table(evidence_rows)
 
     st.subheader("Recommendation Table")
     render_recommendation_table(frame)
