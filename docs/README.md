@@ -13,5 +13,8 @@ Start with:
 | `runbook.md` | Paper to live promotion, checks, kill switch, and reconciliation. |
 | `isa_notes.md` | Cautious ISA operational notes, not tax advice. |
 | `roadmap.md` | Three-month development roadmap. |
+| `implementation-roadmap.md` | Staged delivery plan converted from the deep research report. |
+| `mvp-gap-analysis.md` | Repo-specific gap analysis and first implementation choice. |
+| `agent-coordination.md` | Parallel workstream ownership, merge order, and handoff notes. |
 | `dashboard_layout.md` | Operator dashboard widget map. |
 | `assumptions.md` | Explicit assumptions and validation items. |
