@@ -15,13 +15,14 @@ management visibility come before any deeper live execution work.
 | Documentation and coordination | Current orchestrator | `codex/mvp-roadmap-orchestration` | Completed baseline |
 | Management console / admin area | Current orchestrator | `codex/mvp-roadmap-orchestration` | Completed first slice |
 | UI/UX consistency and simplification | Unassigned | `codex/ui-cockpit-simplification` | Pending |
-| Local onboarding and pilot setup | Unassigned | `codex/local-onboarding` | Pending |
-| Pilot customer workflow | Unassigned | `codex/pilot-workflow` | Pending |
+| Local onboarding and pilot setup | Hypatia | `codex/local-onboarding` | Active |
+| Pilot customer workflow | Dirac | `codex/pilot-paper-workflow` | Active |
 | Portfolio and instrument data model | Unassigned | `codex/identity-mapping` | Pending |
-| Recommendation engine / agent output | Unassigned | `codex/recommendation-evidence` | Pending |
+| Recommendation engine / agent output | Russell | `codex/recommendation-display-ux` | Active |
 | Report generation | Unassigned | `codex/report-generation` | Pending |
 | Auth, roles, permissions | Unassigned | `codex/auth-permission-design` | Pending |
-| Testing, QA, deployment readiness | Unassigned | `codex/testing-readiness` | Pending |
+| Testing, QA, deployment readiness | Faraday | `codex/mvp-qa-guardrails` | Active |
+| Management diagnostics phase 2 | Beauvoir | `codex/management-diagnostics` | Active |
 
 ## Parallel Execution Plan
 
@@ -352,3 +353,25 @@ Tests run:
 
 Integration concerns: The Management page reads local settings and broker
 snapshot state only. It does not call mode mutation endpoints or submit orders.
+
+### 2026-05-11 - Orchestrator Parallel Dispatch
+
+What changed: Dispatched five parallel worker agents for Management diagnostics,
+local onboarding, recommendation display UX, pilot paper workflow shell, and MVP
+QA guardrails. Added root coordination files for future agents.
+
+What remains: Monitor worker outputs, integrate in recommended merge order, and
+resolve any handoff-note conflicts in this file.
+
+Files touched:
+
+- `AGENTS.md`
+- `TODO.md`
+- `CHANGELOG.md`
+- `docs/agent-coordination.md`
+
+Tests run: Documentation-only update; `git diff --check` pending before commit.
+
+Integration concerns: Multiple workers may append handoff notes to
+`docs/agent-coordination.md`. The orchestrator should reconcile notes during
+merge and preserve the latest status table.
