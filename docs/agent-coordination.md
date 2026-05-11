@@ -15,14 +15,14 @@ management visibility come before any deeper live execution work.
 | Documentation and coordination | Current orchestrator | `codex/mvp-roadmap-orchestration` | Completed baseline |
 | Management console / admin area | Current orchestrator | `codex/mvp-roadmap-orchestration` | Completed first slice |
 | UI/UX consistency and simplification | Unassigned | `codex/ui-cockpit-simplification` | Pending |
-| Local onboarding and pilot setup | Hypatia | `codex/local-onboarding` | Active |
-| Pilot customer workflow | Dirac | `codex/pilot-paper-workflow` | Active |
+| Local onboarding and pilot setup | Hypatia / orchestrator | `codex/parallel-partial-integration` | Completed first slice |
+| Pilot customer workflow | Meitner | `codex/pilot-paper-workflow` | Active in isolated worktree |
 | Portfolio and instrument data model | Unassigned | `codex/identity-mapping` | Pending |
-| Recommendation engine / agent output | Russell | `codex/recommendation-display-ux` | Active |
+| Recommendation engine / agent output | Russell / orchestrator | `codex/parallel-partial-integration` | Completed display slice |
 | Report generation | Unassigned | `codex/report-generation` | Pending |
 | Auth, roles, permissions | Unassigned | `codex/auth-permission-design` | Pending |
-| Testing, QA, deployment readiness | Faraday | `codex/mvp-qa-guardrails` | Active |
-| Management diagnostics phase 2 | Beauvoir | `codex/management-diagnostics` | Active |
+| Testing, QA, deployment readiness | Zeno | `codex/mvp-qa-guardrails-2` | Active in isolated worktree |
+| Management diagnostics phase 2 | Tesla | `codex/management-diagnostics` | Active in isolated worktree |
 
 ## Parallel Execution Plan
 
@@ -375,3 +375,50 @@ Tests run: Documentation-only update; `git diff --check` pending before commit.
 Integration concerns: Multiple workers may append handoff notes to
 `docs/agent-coordination.md`. The orchestrator should reconcile notes during
 merge and preserve the latest status table.
+
+### 2026-05-11 - Orchestrator Shared Worktree Recovery
+
+What changed: Paused the first parallel worker batch after detecting that
+agents shared the same checkout. Preserved useful partial work in split commits
+on `codex/parallel-partial-integration`, then created explicit isolated
+worktrees under `C:\Users\DanielCoakley\.codex\worktrees\parallel-t212`.
+
+Commits preserved:
+
+- `6248cca docs: improve local onboarding and pilot checklist`
+- `2c3f050 feat: clarify recommendation review display`
+- `eb33f30 feat: add notional paper preview simulation`
+
+New isolated workers:
+
+- Tesla: `codex/management-diagnostics`
+- Zeno: `codex/mvp-qa-guardrails-2`
+- Meitner: `codex/pilot-paper-workflow`
+
+What remains: Monitor the isolated workers, then integrate in this order:
+QA guardrails, Management diagnostics, Pilot workflow shell. Reconcile any
+handoff notes from isolated branches.
+
+Files touched:
+
+- `.env.example`
+- `README.md`
+- `docs/README.md`
+- `docs/pilot-checklist.md`
+- `src/isa_system/dashboard/pages/recommendations.py`
+- `src/isa_system/dashboard/recommendation_charts.py`
+- `src/isa_system/services/paper_simulation.py`
+- `tests/unit/test_dashboard_recommendation_queue.py`
+- `tests/unit/test_paper_simulation.py`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 79 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The first worker batch did not complete normal handoff
+notes because it was paused. The orchestrator added tests and commits for the
+salvaged slices. Continue future parallel work only in explicit worktree
+directories.
