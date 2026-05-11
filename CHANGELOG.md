@@ -33,6 +33,10 @@ All notable project changes should be recorded here.
 - Added API release-readiness checks for report and paper-cycle route
   discovery, missing paper-cycle reloads, migration shape, and live-submit
   guardrails.
+- Added a Preview-page saved paper-cycle inspector for persisted paper evidence.
+- Connected operator reports to supplied persisted paper-cycle evidence.
+- Added identity diagnostics for broker ticker, research symbol, ISIN,
+  validation confidence, and mismatch caveats without changing gating semantics.
 
 ### Fixed
 
@@ -43,6 +47,6 @@ All notable project changes should be recorded here.
 
 ### Next
 
-- Connect operator reports to persisted paper cycles.
-- Add paper cycle review surface.
-- Instrument identity mapping for broker ticker, research symbol, and ISIN.
+- Paper reconciliation summary.
+- Official evidence packet diagnostics.
+- Dashboard smoke automation for the current MVP demo flow.

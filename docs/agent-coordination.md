@@ -5,8 +5,9 @@
 Ship a practical MVP operator cockpit for a local-first UK Stocks and Shares ISA
 trading system. The immediate objective is not autonomous trading; it is a safe,
 auditable workflow from account state to broker-seeded screener, consolidated
-recommendations, deep research gate, and preview-only sizing. Paper evidence and
-management visibility come before any deeper live execution work.
+recommendations, deep research gate, preview-only sizing, persisted paper
+evidence, and operator reporting. Paper reconciliation and management
+visibility come before any deeper live execution work.
 
 ## Active Workstreams
 
@@ -22,10 +23,10 @@ management visibility come before any deeper live execution work.
 | Source freshness diagnostics | Pascal | `codex/parallel-partial-integration` | Integrated |
 | Recommendation engine / agent output | Russell / orchestrator | `codex/parallel-partial-integration` | Completed display slice |
 | Report generation | Kant | `codex/parallel-partial-integration` | Integrated report shell |
-| Paper/report integration | Turing | `codex/paper-report-integration` | Active in isolated worktree |
-| Paper cycle review surface | Cicero | `codex/paper-cycle-review` | Active in isolated worktree |
-| Identity diagnostics | Heisenberg | `codex/identity-diagnostics` | Active in isolated worktree |
-| API/release readiness QA | Franklin | `codex/api-release-readiness` | Active in isolated worktree |
+| Paper/report integration | Turing | `codex/parallel-partial-integration` | Integrated |
+| Paper cycle review surface | Cicero | `codex/parallel-partial-integration` | Integrated |
+| Identity diagnostics | Heisenberg | `codex/parallel-partial-integration` | Integrated |
+| API/release readiness QA | Franklin | `codex/parallel-partial-integration` | Integrated |
 | Auth, roles, permissions | Unassigned | `codex/auth-permission-design` | Pending |
 | Testing, QA, deployment readiness | Zeno | `codex/parallel-partial-integration` | Completed guardrail slice |
 | Management diagnostics phase 2 | Tesla | `codex/parallel-partial-integration` | Integrated |
@@ -36,10 +37,10 @@ This plan selects the next five practical MVP workstreams for separate Codex
 execution agents. The selection favours operator readiness, workflow clarity,
 pilot evidence, and regression protection over deeper enterprise architecture.
 
-Status update: the first two isolated worker batches have been integrated into
-`codex/parallel-partial-integration`. The latest integrated batch landed source
-freshness diagnostics, paper intent persistence, and an operator report shell.
-Full tests and lint are green after integration.
+Status update: the first three isolated worker batches have been integrated into
+`codex/parallel-partial-integration`. The latest integrated batch landed paper
+cycle review, report-to-paper linkage, identity diagnostics, and API release
+readiness checks. Full tests and lint are green after integration.
 
 ### Selected Workstreams
 
@@ -95,11 +96,10 @@ Actual merge order: source freshness diagnostics, paper persistence, then
 operator report shell. This landed durable paper evidence before the report
 shell became the next aggregation surface.
 
-### Next Parallel Batch
+### Integrated Parallel Batch 3
 
-The next batch should use `codex/parallel-partial-integration` as its base
-after commit `261c92a` or later. Keep these streams MVP-focused and avoid live
-execution work:
+These streams started from `codex/parallel-partial-integration` after the
+second worker batch merged and are now integrated:
 
 | Priority | Workstream | Branch/worktree | Likely files/directories | Acceptance criteria | Conflict risk |
 | --- | --- | --- | --- | --- | --- |
@@ -111,6 +111,27 @@ execution work:
 Recommended merge order for the next batch: API/release readiness QA, identity
 diagnostics, paper/report integration, then paper cycle review surface. Merge
 dashboard work last if it touches Preview rendering.
+
+Actual merge order: paper cycle review surface, paper/report integration,
+API/release readiness QA, then identity diagnostics. Full tests passed after the
+batch merged.
+
+### Next Parallel Batch
+
+The next batch should use `codex/parallel-partial-integration` as its base
+after commit `6df047d` or later. Keep these streams paper-first and avoid live
+execution work:
+
+| Priority | Workstream | Branch/worktree | Likely files/directories | Acceptance criteria | Conflict risk |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Paper reconciliation summary | `codex/paper-reconciliation-summary` | `src/isa_system/services/paper_persistence.py`, `src/isa_system/services/operator_report.py`, `src/isa_system/dashboard/pages/preview.py`, tests | Persisted paper cycles expose a clear reconciliation placeholder/summary and operator next action without broker live writes. | Moderate; coordinates report and Preview surfaces. |
+| 2 | Official evidence packet diagnostics | `codex/evidence-packet-diagnostics` | `src/isa_system/services/deep_research.py`, `src/isa_system/services/recommendation_handoff.py`, `tests/unit`, docs | Buy/add review context exposes evidence packet freshness/caveats without changing OpenAI or provider fetch semantics. | Moderate; avoid recommendation scoring changes. |
+| 3 | Dashboard smoke automation | `codex/dashboard-smoke-readiness` | `src/isa_system/smoke_test.py`, `tests/integration`, `docs/runbook.md` | A repeatable local smoke path verifies Management, Recommendations, Preview, and report/paper endpoints with no live submit authority. | Low; tests/docs first. |
+| 4 | Release cut notes | `codex/mvp-release-notes` | `CHANGELOG.md`, `TODO.md`, `docs/README.md`, `docs/agent-coordination.md` | Docs summarize the current MVP surface, known blockers, and exact safe demo flow. | Low; docs-only. |
+
+Recommended merge order for the next batch: dashboard smoke automation, release
+cut notes, official evidence packet diagnostics, then paper reconciliation
+summary. Merge paper reconciliation last if it touches both report and Preview.
 
 ### Exact Execution Prompts
 

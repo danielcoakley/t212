@@ -13,10 +13,10 @@ instrument validation, deep research review persistence, preview-only sizing,
 paper simulation, guarded live arming, audit logging, and tests around several
 critical flows.
 
-The highest-value next gap is paper evidence usability. The first Management
-page, pilot workflow shell, paper-cycle persistence, and operator report shell
-now exist, but reports and dashboard review surfaces do not yet make persisted
-paper cycles easy to inspect or compare against later reconciliation.
+The highest-value next gap is paper reconciliation clarity. The first
+Management page, pilot workflow shell, paper-cycle persistence, saved-cycle
+review, and operator report shell now exist, but persisted paper cycles still do
+not compare against broker evidence or an explicit reconciliation summary.
 
 ## Architecture Inventory
 
@@ -26,7 +26,7 @@ paper cycles easy to inspect or compare against later reconciliation.
 | Backend/API | FastAPI with health, config, backtest, rebalance, pilot workflow, paper-cycle persistence, operator report, mode, order, audit, metric, portfolio, recommendation, research, valuation routes | Rich management/status endpoint, paper reconciliation APIs | Keep local-only semantics and explicit live guards. |
 | Database | Operational SQLAlchemy models for configs, rebalance runs, order batches, orders, fills, paper cycles/intents/simulated fills, position/cash snapshots, risk events, audit, idempotency, registry, universe snapshots, research reviews | Issuer identity table, explicit identity mapping confidence, thesis records, alerts, settings audit diff detail | Avoid sweeping migrations until identity slices are scoped. |
 | Auth/permissions | Local bind host, runtime mode, live arming, kill switch state | User auth, roles, approval permissions | Not MVP-critical for local-first use; document first. |
-| Reporting | Backtest and smoke outputs, Streamlit charts, audit log page, changelog, operator report shell | Paper-cycle report integration, paper acceptance evidence pack | Build from existing paper persistence and report service. |
+| Reporting | Backtest and smoke outputs, Streamlit charts, audit log page, changelog, operator report shell with persisted paper-cycle evidence | Paper acceptance evidence pack and export polish | Build from existing paper persistence and report service. |
 | Workflow | Recommendation to research gate to preview-only sizing, paper workflow summary, and persisted paper cycles exist | Paper reconciliation, approval queue | Paper first, live later. |
 | Management/admin | Sidebar status, API mode endpoints, read-only Management page | Rich status endpoint, write controls only after explicit safety review | Keep Management read-only for MVP. |
 
@@ -39,8 +39,8 @@ paper cycles easy to inspect or compare against later reconciliation.
 | Broker-universe scan seed | Exists | `market_scan.py`, `market_screener.py`, recommendation routes | Add coverage warnings and identity diagnostics. |
 | Recommendations | Exists | `recommendations.py`, `recommendation_handoff.py`, dashboard charts/tests | Add rank changes and official evidence links. |
 | Deep research gate | Exists | `deep_research.py`, `research_reviews.py`, migration `0002` | Improve evidence packets and review comparison. |
-| Preview-only sizing | Exists | `recommendation_preview.py`, `/rebalances/from-recommendations/preview`, paper-cycle save/reload routes | Add paper cycle review surface and richer cash/exposure reporting. |
-| Paper simulation | Partial | `paper_broker.py`, `paper_simulation.py`, pilot workflow endpoint, persisted paper cycles | Reconcile persisted paper cycles against preview and later broker evidence. |
+| Preview-only sizing | Exists | `recommendation_preview.py`, `/rebalances/from-recommendations/preview`, paper-cycle save/reload routes, Preview saved-cycle inspector | Add richer cash/exposure reporting. |
+| Paper simulation | Partial | `paper_broker.py`, `paper_simulation.py`, pilot workflow endpoint, persisted paper cycles, report integration | Reconcile persisted paper cycles against preview and later broker evidence. |
 | Live execution | Guarded starter | `modes.py`, Trading 212 submit client, idempotency manager | Keep guarded; do not expand before paper acceptance. |
 | Official UK evidence | Partial/stub | FCA NSM, LSE RNS, Companies House provider modules | Need robust PIT ingestion and parser tests. |
 | Identity mapping | Partial | Instrument registry, instrument validation | Need issuer mapping and confidence/manual overrides. |
@@ -50,23 +50,26 @@ paper cycles easy to inspect or compare against later reconciliation.
 
 ## MVP-Critical Gaps
 
-### 1. Paper Evidence Usability
+### 1. Paper Reconciliation Summary
 
 Why it matters: Paper trading is the bridge between preview and any future
-micro-live readiness. The current workflow can persist expected vs simulated
-paper output, but operators still need a clear review surface and report link.
+micro-live readiness. The current workflow can persist and inspect expected vs
+simulated paper output, but operators still need a clear reconciliation
+placeholder and later expected-vs-actual comparison path.
 
 Recommended slice:
 
-- Allow the operator report shell to include a supplied persisted paper cycle.
-- Add a small dashboard/API review surface for saved paper cycles.
+- Add a small paper reconciliation summary shape.
+- Include cycle ID, expected totals, simulated totals, missing broker evidence,
+  and next action.
 - Keep reconciliation status explicit as unavailable until broker evidence is
   ingested.
 
 Acceptance:
 
-- Persisted paper cycles can be inspected without re-running preview.
-- Report output can distinguish simulated, persisted, and reconciled evidence.
+- Persisted paper cycles can be summarized as unreconciled without ambiguity.
+- Report and dashboard output distinguish simulated, persisted, and reconciled
+  evidence.
 - No live submit path is added.
 
 ### 2. Identity Mapping

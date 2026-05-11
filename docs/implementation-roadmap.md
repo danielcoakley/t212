@@ -44,15 +44,15 @@ The current MVP goal is:
 | Priority | Feature | Current state | Next implementation step |
 | --- | --- | --- | --- |
 | P0 | Operator cockpit workflow | Implemented in Streamlit with Management visibility | Continue simplifying workflow labels and empty/error states. |
-| P0 | Broker-readable portfolio and universe | Read-only account/positions, instrument metadata support, and freshness diagnostics exist | Add identity diagnostics and rate-limit context. |
+| P0 | Broker-readable portfolio and universe | Read-only account/positions, instrument metadata support, freshness diagnostics, and identity diagnostics exist | Add rate-limit context and later persisted manual overrides. |
 | P0 | Recommendation queue and hand-off | Implemented with broker validation, research status, review-state columns, and source freshness context | Add rank-change history and official evidence links. |
 | P0 | Deep research gate | Implemented and persisted; OpenAI key absent means no buy approval | Improve evidence packets, expiry controls, and comparison between current and previous reviews. |
-| P0 | Preview-only sizing | Implemented for selected eligible recommendations, with pilot paper workflow shell and paper-cycle persistence | Add paper-cycle review surface and richer cash/exposure reporting. |
+| P0 | Preview-only sizing | Implemented for selected eligible recommendations, with pilot paper workflow shell, paper-cycle persistence, and saved-cycle review | Add richer cash/exposure reporting. |
 | P0 | Safety management | Implemented as read-only Management diagnostics plus API mode routes and sidebar status | Add richer status APIs only where they reduce dashboard coupling. |
-| P1 | Paper trading loop | Paper broker, simulation, workflow summary, and replayable paper-cycle persistence exist; reconciliation still thin | Add persisted cycle review, report integration, and expected-vs-actual reconciliation. |
+| P1 | Paper trading loop | Paper broker, simulation, workflow summary, replayable paper-cycle persistence, review, and report integration exist; reconciliation still thin | Add expected-vs-actual reconciliation summary. |
 | P1 | Official UK evidence | Provider adapters/stubs exist | Prioritise Companies House identity, FCA NSM/RNS event tags, PDMR dealing, and short-interest parser versioning. |
-| P1 | Point-in-time identity mapping | Instrument registry exists; issuer identity is incomplete | Add explicit broker ticker, research symbol, ISIN, LEI, company number mapping with confidence and manual override. |
-| P1 | Reporting and release notes | Basic charts, audit pages, changelog, and operator report shell exist | Connect reports to persisted paper cycles and add export/display polish later. |
+| P1 | Point-in-time identity mapping | Instrument registry and display-time identity diagnostics exist; issuer identity is incomplete | Add persisted broker ticker, research symbol, ISIN, LEI, company number mapping with confidence and manual override. |
+| P1 | Reporting and release notes | Basic charts, audit pages, changelog, and operator report shell with persisted paper-cycle evidence exist | Add export/display polish later. |
 
 ## Post-MVP Features
 
@@ -78,8 +78,8 @@ The current MVP goal is:
 
 ## Suggested Implementation Order
 
-1. Connect operator reports to persisted paper cycles.
-2. Add paper cycle review surface and later reconciliation dashboard section.
+1. Add paper reconciliation summary and later dashboard section.
+2. Add official evidence packet diagnostics for research and recommendation handoff.
 3. Add identity mapping table/service for broker ticker, research symbol, ISIN, LEI, and company number.
 4. Add official-source event ingestion depth for Companies House and FCA NSM/RNS.
 5. Expand catalyst tags and point-in-time tests.

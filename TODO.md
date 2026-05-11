@@ -7,7 +7,10 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 
 | Priority | Task | Owner | Branch/worktree | Status |
 | --- | --- | --- | --- | --- |
-| P1 | Identity diagnostics | Heisenberg | `codex/identity-diagnostics` | Active in isolated worktree |
+| P1 | Paper reconciliation summary | Unassigned | `codex/paper-reconciliation-summary` | Queued |
+| P1 | Dashboard smoke automation | Unassigned | `codex/dashboard-smoke-readiness` | Queued |
+| P1 | Official evidence packet diagnostics | Unassigned | `codex/evidence-packet-diagnostics` | Queued |
+| P2 | MVP release notes | Unassigned | `codex/mvp-release-notes` | Queued |
 
 ## Completed This Cycle
 
@@ -24,14 +27,15 @@ for ownership and merge order remains `docs/agent-coordination.md`.
 | Operator report export shell | `261c92a` | Added side-effect-free report service and API route for MVP evidence summaries. |
 | Paper cycle review surface | `016d1ce` | Added Preview-page saved paper-cycle inspector and helper tests. |
 | Paper/report integration | `62cc85b` | Connected operator reports to supplied persisted paper-cycle evidence. |
-| API/release readiness QA | `pending integration` | Added offline release-readiness checks for report/paper-cycle API contracts, migration discovery/shape, missing paper-cycle reloads, and no-live-submit guardrails. |
+| API/release readiness QA | `3c077ea` | Added offline release-readiness checks for report/paper-cycle API contracts, migration discovery/shape, missing paper-cycle reloads, and no-live-submit guardrails. |
+| Identity diagnostics | `6df047d` | Added identity confidence, ISIN, candidate broker tickers, and mismatch caveats to validation/handoff/dashboard helper output. |
 
 ## Next Queue
 
 | Priority | Task | Why next |
 | --- | --- | --- |
-| P1 | Add identity mapping slice for broker ticker, research symbol, and ISIN | Reduces the main instrument mismatch risk. |
 | P1 | Add paper reconciliation summary | Next logical step after persisted paper cycles and report integration. |
+| P1 | Add evidence packet diagnostics | Deep research and official-source caveats remain the next trust gap before paper acceptance. |
 | P2 | Add dashboard smoke/visual QA notes for Management, Recommendations, and Preview | Catches Streamlit rendering regressions outside pure unit tests. |
 
 ## Deferred
