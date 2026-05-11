@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from isa_system.services.paper_simulation import PaperSimulationSnapshot, simulate_paper_fills
 from isa_system.services.portfolio_state import (
     BrokerPortfolioSnapshot,
     clear_portfolio_cache,
@@ -36,6 +37,7 @@ def refresh_broker_snapshot() -> BrokerPortfolioSnapshot:
     _broker_snapshot_payload.clear()
     _holdings_valuation_payload.clear()
     _rebalance_preview_payload.clear()
+    _paper_simulation_payload.clear()
     return broker_snapshot()
 
 
@@ -75,4 +77,24 @@ def rebalance_preview(
     broker = snapshot or broker_snapshot()
     return RebalancePreviewSnapshot.model_validate(
         _rebalance_preview_payload(broker.model_dump(mode="json"))
+    )
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _paper_simulation_payload(broker_payload: dict[str, object]) -> dict[str, object]:
+    """Return cached paper fill simulation for the current preview."""
+
+    snapshot = BrokerPortfolioSnapshot.model_validate(broker_payload)
+    preview = rebalance_preview(snapshot)
+    return simulate_paper_fills(preview).model_dump(mode="json")
+
+
+def paper_simulation(
+    snapshot: BrokerPortfolioSnapshot | None = None,
+) -> PaperSimulationSnapshot:
+    """Return a local paper fill simulation for the current preview."""
+
+    broker = snapshot or broker_snapshot()
+    return PaperSimulationSnapshot.model_validate(
+        _paper_simulation_payload(broker.model_dump(mode="json"))
     )

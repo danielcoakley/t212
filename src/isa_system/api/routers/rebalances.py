@@ -12,6 +12,7 @@ from isa_system.domain.enums import RuntimeMode
 from isa_system.domain.models import TargetWeight
 from isa_system.portfolio.costs import CostModel
 from isa_system.portfolio.rebalancer import build_rebalance_plan
+from isa_system.services.paper_simulation import PaperSimulationSnapshot, simulate_paper_fills
 from isa_system.services.portfolio_state import load_trading212_portfolio
 from isa_system.services.rebalance_preview import (
     RebalancePreviewSnapshot,
@@ -55,6 +56,16 @@ def live_preview() -> RebalancePreviewSnapshot:
     snapshot = load_trading212_portfolio()
     valuation = value_current_holdings(snapshot)
     return build_preview_from_holdings(snapshot, valuation)
+
+
+@router.get("/rebalances/paper-simulation", response_model=PaperSimulationSnapshot)
+def paper_simulation() -> PaperSimulationSnapshot:
+    """Return local paper fill simulation from the current preview plan."""
+
+    snapshot = load_trading212_portfolio()
+    valuation = value_current_holdings(snapshot)
+    preview_snapshot = build_preview_from_holdings(snapshot, valuation)
+    return simulate_paper_fills(preview_snapshot)
 
 
 @router.post("/rebalances/submit")

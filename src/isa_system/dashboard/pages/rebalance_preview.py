@@ -15,7 +15,7 @@ from isa_system.dashboard.charts import (
     render_snapshot_context,
     render_warnings,
 )
-from isa_system.dashboard.data import broker_snapshot, rebalance_preview
+from isa_system.dashboard.data import broker_snapshot, paper_simulation, rebalance_preview
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
 
 
@@ -26,7 +26,9 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
     frame = positions_frame(snapshot)
     totals = portfolio_totals(snapshot, frame)
     preview = rebalance_preview(snapshot)
+    simulation = paper_simulation(snapshot)
     preview_frame = _preview_frame(preview)
+    simulation_frame = _simulation_frame(simulation)
     st.title("Rebalance Preview")
     st.error("Live submit is disabled. This page is a read-only preview and safety review.")
     render_snapshot_context(snapshot, frame)
@@ -72,6 +74,21 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
 
     st.subheader("Risk Checks")
     _render_risk_checks(preview)
+
+    st.subheader("Paper Fill Simulation")
+    st.caption(
+        "This simulates local paper fills from blocked preview rows. It does not reserve "
+        "idempotency keys, persist fills, or send anything to Trading 212."
+    )
+    sim_cols = st.columns(4)
+    sim_cols[0].metric("Simulated fills", str(simulation.fill_count))
+    sim_cols[1].metric("Paper notional", f"{float(simulation.estimated_notional):,.2f}")
+    sim_cols[2].metric("Paper fees", f"{float(simulation.estimated_fees):,.2f}")
+    sim_cols[3].metric("Simulation hash", simulation.simulation_hash[:10])
+    _render_simulation_table(simulation_frame)
+    for warning in simulation.warnings:
+        st.info(warning)
+
     if preview.warnings:
         st.subheader("Warnings")
         for warning in preview.warnings:
@@ -231,6 +248,41 @@ def _render_risk_checks(preview: object) -> None:
         st.info("No risk checks are available for this preview.")
         return
     st.dataframe(pd.DataFrame(checks), width="stretch", hide_index=True)
+
+
+def _simulation_frame(simulation: object) -> pd.DataFrame:
+    """Flatten paper simulation rows for display."""
+
+    rows = []
+    for fill in getattr(simulation, "fills", []):
+        rows.append(fill.model_dump(mode="json") if hasattr(fill, "model_dump") else dict(fill))
+    return pd.DataFrame(rows)
+
+
+def _render_simulation_table(frame: pd.DataFrame) -> None:
+    """Render local paper fill simulation rows."""
+
+    if frame.empty:
+        st.info("No paper fills would be simulated from the current preview.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "symbol": st.column_config.TextColumn("Symbol"),
+            "side": st.column_config.TextColumn("Side"),
+            "quantity": st.column_config.NumberColumn("Quantity", format="%.6f"),
+            "fill_price_account": st.column_config.NumberColumn(
+                "Fill price in account currency",
+                format="%.2f",
+            ),
+            "notional": st.column_config.NumberColumn("Notional", format="%.2f"),
+            "estimated_fees": st.column_config.NumberColumn("Fees", format="%.2f"),
+            "status": st.column_config.TextColumn("Status"),
+            "note": st.column_config.TextColumn("Note"),
+        },
+    )
 
 
 def _blocked_count(frame: pd.DataFrame) -> int:
