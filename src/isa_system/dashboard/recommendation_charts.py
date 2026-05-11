@@ -238,8 +238,12 @@ def consolidated_recommendation_frame(
     instrument_rows = instrument_validation_frame(instrument_validation)
     if base.empty:
         return base
+    evidence_for_queue = evidence.drop(
+        columns=["source", "action", "warnings", "sentiment"],
+        errors="ignore",
+    )
     merged = base.merge(
-        evidence.drop(columns=["source", "action", "warnings"], errors="ignore"),
+        evidence_for_queue,
         on="research_symbol",
         how="left",
     )
@@ -250,6 +254,7 @@ def consolidated_recommendation_frame(
                 "preview_action",
                 "handoff_status",
                 "broker_ticker",
+                "deep_research_required",
                 "research_review_status",
                 "eligible_for_preview",
                 "blockers",
@@ -271,22 +276,29 @@ def consolidated_recommendation_frame(
             "eligible_for_preview": "preview_eligible",
         }
     )
+    merged = _add_review_scan_columns(merged)
     columns = [
         "research_symbol",
         "name",
-        "source",
+        "review_state",
         "action",
+        "preview_action",
+        "preview_eligible",
+        "broker_gate",
+        "research_gate",
+        "preview_blockers",
+        "source_caveats",
+        "next_step",
         "composite",
         "fundamental",
         "technical",
         "sentiment",
         "catalysts",
+        "evidence_coverage",
+        "source",
         "broker_validation",
         "broker_ticker",
         "research_review_status",
-        "preview_eligible",
-        "preview_blockers",
-        "next_step",
         "trailing_pe",
         "forward_pe",
         "price_to_book",
@@ -312,19 +324,25 @@ def render_consolidated_recommendation_table(frame: pd.DataFrame) -> None:
         column_config={
             "research_symbol": st.column_config.TextColumn("Symbol"),
             "name": st.column_config.TextColumn("Name"),
-            "source": st.column_config.TextColumn("Source"),
+            "review_state": st.column_config.TextColumn("Review state"),
             "action": st.column_config.TextColumn("Action"),
+            "preview_action": st.column_config.TextColumn("Preview side"),
+            "preview_eligible": st.column_config.CheckboxColumn("Preview"),
+            "broker_gate": st.column_config.TextColumn("Broker gate"),
+            "research_gate": st.column_config.TextColumn("Research gate"),
+            "preview_blockers": st.column_config.TextColumn("Blockers"),
+            "source_caveats": st.column_config.TextColumn("Source caveats"),
+            "next_step": st.column_config.TextColumn("Next step"),
             "composite": st.column_config.NumberColumn("Composite", format="%.2f"),
             "fundamental": st.column_config.NumberColumn("Fundamental", format="%.2f"),
             "technical": st.column_config.NumberColumn("Technical", format="%.2f"),
             "sentiment": st.column_config.NumberColumn("Sentiment", format="%.2f"),
             "catalysts": st.column_config.NumberColumn("Catalysts", format="%.2f"),
+            "evidence_coverage": st.column_config.TextColumn("Evidence coverage"),
+            "source": st.column_config.TextColumn("Source"),
             "broker_validation": st.column_config.TextColumn("Broker check"),
             "broker_ticker": st.column_config.TextColumn("T212 ticker"),
-            "research_review_status": st.column_config.TextColumn("Research gate"),
-            "preview_eligible": st.column_config.CheckboxColumn("Preview"),
-            "preview_blockers": st.column_config.TextColumn("Blockers"),
-            "next_step": st.column_config.TextColumn("Next action"),
+            "research_review_status": st.column_config.TextColumn("Research status"),
             "trailing_pe": st.column_config.NumberColumn("P/E", format="%.2f"),
             "forward_pe": st.column_config.NumberColumn("Fwd P/E", format="%.2f"),
             "price_to_book": st.column_config.NumberColumn("P/B", format="%.2f"),
@@ -335,6 +353,130 @@ def render_consolidated_recommendation_table(frame: pd.DataFrame) -> None:
             "rationale": st.column_config.TextColumn("Rationale"),
         },
     )
+
+
+def _add_review_scan_columns(frame: pd.DataFrame) -> pd.DataFrame:
+    """Add compact, dashboard-only summaries for the recommendation review queue."""
+
+    if frame.empty:
+        return frame
+    frame = frame.copy()
+    frame["review_state"] = frame.apply(_review_state, axis=1)
+    frame["broker_gate"] = frame.apply(_broker_gate, axis=1)
+    frame["research_gate"] = frame.apply(_research_gate, axis=1)
+    frame["evidence_coverage"] = frame.apply(_evidence_coverage, axis=1)
+    frame["source_caveats"] = frame.apply(_source_caveats, axis=1)
+    return frame
+
+
+def _review_state(row: pd.Series) -> str:
+    blockers = _split_caveats(row.get("preview_blockers"))
+    handoff_status = _text(row.get("handoff_status"))
+    action = _text(row.get("action"))
+    if row.get("preview_eligible") is True:
+        return "Preview ready"
+    if handoff_status == "BLOCKED" or action == "BLOCKED":
+        return "Blocked"
+    needs_broker = any(blocker.startswith("BROKER_") for blocker in blockers)
+    needs_research = any(blocker.startswith("DEEP_RESEARCH_") for blocker in blockers)
+    if needs_broker and needs_research:
+        return "Needs broker + research"
+    if needs_broker:
+        return "Needs broker validation"
+    if needs_research:
+        return "Needs research"
+    if handoff_status == "REVIEW_REQUIRED":
+        return "Needs review"
+    if handoff_status == "NO_ACTION":
+        return "Monitor"
+    return "Review"
+
+
+def _broker_gate(row: pd.Series) -> str:
+    status = _text(row.get("broker_validation")) or "NOT_CHECKED"
+    ticker = _text(row.get("broker_ticker"))
+    details = ", ".join(
+        value
+        for value in [
+            ticker,
+            _text(row.get("currency")),
+            _text(row.get("asset_type")),
+        ]
+        if value
+    )
+    if details:
+        return f"{status}: {details}"
+    return status
+
+
+def _research_gate(row: pd.Series) -> str:
+    required = bool(row.get("deep_research_required"))
+    status = _text(row.get("research_review_status"))
+    if not required:
+        return "Not required for current action"
+    if status == "RESEARCH_PASSED":
+        return "RESEARCH_PASSED"
+    return f"Required: {status or 'MISSING'}"
+
+
+def _evidence_coverage(row: pd.Series) -> str:
+    coverage = [
+        "valuation ok" if _has_value(row.get("fundamental")) else "missing valuation",
+        "technicals ok" if _has_value(row.get("technical")) else "missing technicals",
+        "sentiment ok" if _has_value(row.get("sentiment")) else "missing sentiment",
+    ]
+    events = _int_or_zero(row.get("events"))
+    news_items = _int_or_zero(row.get("news_items"))
+    coverage.append(f"{events} event{'s' if events != 1 else ''}")
+    coverage.append(f"{news_items} news item{'s' if news_items != 1 else ''}")
+    return "; ".join(coverage)
+
+
+def _source_caveats(row: pd.Series) -> str:
+    caveats = [
+        *_split_caveats(row.get("warnings")),
+        *_split_caveats(row.get("risk_flags")),
+    ]
+    source = _text(row.get("source"))
+    if source in {"watchlist", "default"}:
+        caveats.append("OFFICIAL_SOURCE_REVIEW_REQUIRED")
+    broker_validation = _text(row.get("broker_validation"))
+    if broker_validation not in {"BROKER_MATCHED", "HOLDING_CONFIRMED"}:
+        caveats.append("BROKER_METADATA_NOT_CONFIRMED")
+    research_gate = _research_gate(row)
+    if research_gate.startswith("Required:"):
+        caveats.append("DEEP_RESEARCH_NOT_PASSED")
+    return _join_unique(caveats) or "No caveats flagged"
+
+
+def _split_caveats(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return [
+        item.strip() for part in str(value).split(";") for item in part.split(",") if item.strip()
+    ]
+
+
+def _join_unique(values: list[str]) -> str:
+    return ", ".join(dict.fromkeys(value for value in values if value))
+
+
+def _text(value: Any) -> str:
+    if value is None or pd.isna(value):
+        return ""
+    return str(value).strip()
+
+
+def _has_value(value: Any) -> bool:
+    return value is not None and not pd.isna(value)
+
+
+def _int_or_zero(value: Any) -> int:
+    if value is None or pd.isna(value):
+        return 0
+    return int(value)
 
 
 def handoff_frame(response: RecommendationHandoffResponse) -> pd.DataFrame:

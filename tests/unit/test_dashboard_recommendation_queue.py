@@ -52,6 +52,11 @@ def test_consolidated_recommendation_view_contains_mvp_gate_columns() -> None:
 
     assert {
         "action",
+        "review_state",
+        "broker_gate",
+        "research_gate",
+        "evidence_coverage",
+        "source_caveats",
         "preview_blockers",
         "broker_validation",
         "research_review_status",
@@ -59,4 +64,7 @@ def test_consolidated_recommendation_view_contains_mvp_gate_columns() -> None:
     }.issubset(frame.columns)
     assert frame.loc[0, "action"] == "REVIEW_BUY"
     assert frame.loc[0, "broker_validation"] == "BROKER_MATCHED"
+    assert frame.loc[0, "review_state"] == "Needs research"
+    assert frame.loc[0, "research_gate"] == "Required: MISSING"
+    assert "OFFICIAL_SOURCE_REVIEW_REQUIRED" in frame.loc[0, "source_caveats"]
     assert "DEEP_RESEARCH_REQUIRED" in frame.loc[0, "preview_blockers"]

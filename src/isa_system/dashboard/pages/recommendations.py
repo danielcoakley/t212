@@ -74,13 +74,18 @@ def render(
     score_frame = recommendation_frame(response)
 
     render_recommendation_summary(response, score_frame)
-    cols = st.columns(4)
+    cols = st.columns(5)
     cols[0].metric("Broker scan seed", str(len(workflow.scan_universe_symbols)))
     cols[1].metric("Broker metadata rows", str(validation.instrument_count))
     cols[2].metric("Preview eligible", str(handoff.eligible_count))
     cols[3].metric("Needs research/review", str(handoff.review_required_count))
+    cols[4].metric("Blocked", str(handoff.blocked_count))
 
     st.subheader("Recommendation Queue")
+    st.caption(
+        "Rows are review-only. Preview-ready means the row can enter sizing review; "
+        "it is not order authority."
+    )
     render_consolidated_recommendation_table(queue)
 
     st.subheader("Score Breakdown")
