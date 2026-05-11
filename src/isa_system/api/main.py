@@ -11,6 +11,7 @@ from isa_system.api.routers import (
     health,
     metrics,
     modes,
+    operator_report,
     orders,
     portfolio,
     rebalances,
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router)
     app.include_router(portfolio.router)
     app.include_router(recommendations.router)
+    app.include_router(operator_report.router)
     app.include_router(research_reviews.router)
     app.include_router(valuation.router)
     return app

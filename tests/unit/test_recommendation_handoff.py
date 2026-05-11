@@ -123,6 +123,8 @@ def test_market_scan_review_buy_uses_broker_validation_context() -> None:
     assert row.handoff_status == HandoffStatus.REVIEW_REQUIRED
     assert row.instrument_validation_status == "BROKER_MATCHED"
     assert row.broker_ticker == "GOODl_EQ"
+    assert row.instrument_validation_confidence == "MEDIUM"
+    assert "ISIN_MISSING" in row.identity_caveats
     assert "BROKER_INSTRUMENT_VALIDATION_REQUIRED" not in row.blockers
     assert "DEEP_RESEARCH_REQUIRED" in row.blockers
     assert row.deep_research_required is True

@@ -5,11 +5,18 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from isa_system.services.paper_simulation import simulate_paper_fills
+from isa_system.services.paper_simulation import (
+    simulate_paper_fills,
+    simulate_recommendation_preview_fills,
+)
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot, BrokerPosition
 from isa_system.services.rebalance_preview import (
     RebalancePreviewSettings,
     build_preview_from_holdings,
+)
+from isa_system.services.recommendation_preview import (
+    RecommendationPreviewResponse,
+    RecommendationPreviewRow,
 )
 from isa_system.services.valuation import (
     HoldingsValuationResponse,
@@ -34,6 +41,53 @@ def test_simulate_paper_fills_from_preview_rows() -> None:
     assert simulation.simulation_hash
     assert all(fill.status == "simulated" for fill in simulation.fills)
     assert any("no order is sent" in warning for warning in simulation.warnings)
+
+
+def test_simulate_recommendation_preview_fills_from_notional_rows() -> None:
+    """Recommendation previews produce notional-only paper rows without quantities."""
+
+    preview = RecommendationPreviewResponse(
+        generated_at_utc=datetime(2026, 5, 11, tzinfo=UTC),
+        total_equity_gbp=10_000,
+        selected_count=2,
+        eligible_count=1,
+        estimated_total_cost_gbp=2.5,
+        rows=[
+            RecommendationPreviewRow(
+                symbol="GOOD.L",
+                research_symbol="GOOD.L",
+                broker_ticker="GOOD_GB_EQ",
+                side="BUY",
+                eligible=True,
+                target_weight=0.04,
+                estimated_notional_gbp=400.0,
+                estimated_total_cost_gbp=2.5,
+                research_review_status="RESEARCH_PASSED",
+                rationale="Preview-ready.",
+            ),
+            RecommendationPreviewRow(
+                symbol="WAIT.L",
+                research_symbol="WAIT.L",
+                side="HOLD",
+                eligible=False,
+                target_weight=0.0,
+                estimated_notional_gbp=0.0,
+                estimated_total_cost_gbp=0.0,
+                blockers=["DEEP_RESEARCH_REQUIRED"],
+                rationale="Blocked.",
+            ),
+        ],
+    )
+
+    simulation = simulate_recommendation_preview_fills(preview)
+
+    assert simulation.source_kind == "recommendation_preview"
+    assert simulation.fill_count == 1
+    assert simulation.fills[0].symbol == "GOOD.L"
+    assert simulation.fills[0].quantity is None
+    assert simulation.fills[0].fill_price_account is None
+    assert simulation.estimated_notional == Decimal("400.00")
+    assert any("notional-only" in warning for warning in simulation.warnings)
 
 
 def _broker_snapshot() -> BrokerPortfolioSnapshot:

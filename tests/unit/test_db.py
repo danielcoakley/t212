@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from isa_system.db.crud import append_audit_log
 from isa_system.db.models import ResearchReview
@@ -21,6 +22,16 @@ def test_sqlite_operational_db_can_be_created() -> None:
         )
         session.commit()
         assert row.id is not None
+
+
+def test_file_backed_sqlite_parent_directory_is_created(tmp_path: Path) -> None:
+    """Zero-config SQLite works even when the artifacts directory is absent."""
+
+    db_path = tmp_path / "missing" / "nested" / "isa_system.sqlite3"
+    engine = make_engine(f"sqlite:///{db_path}")
+    init_db(engine)
+
+    assert db_path.exists()
 
 
 def test_sqlite_operational_db_can_persist_research_reviews() -> None:

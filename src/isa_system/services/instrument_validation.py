@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Self
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from isa_system.data.providers.base import ProviderNotConfigured
 from isa_system.data.providers.trading212 import Trading212Client, Trading212Instrument
@@ -31,6 +32,28 @@ class InstrumentValidationStatus(StrEnum):
     ERROR = "ERROR"
 
 
+class InstrumentIdentityConfidence(StrEnum):
+    """Diagnostic confidence in the broker/research symbol identity mapping."""
+
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
+class InstrumentIdentityDiagnostics(BaseModel):
+    """Small operator-facing identity summary for mismatch review."""
+
+    symbol: str
+    research_symbol: str
+    broker_ticker: str | None = None
+    isin: str | None = None
+    validation_status: InstrumentValidationStatus
+    validation_confidence: InstrumentIdentityConfidence
+    candidate_broker_tickers: list[str] = Field(default_factory=list)
+    mismatch_caveats: list[str] = Field(default_factory=list)
+
+
 class InstrumentValidationRow(BaseModel):
     """Validation result for one recommendation candidate."""
 
@@ -44,8 +67,29 @@ class InstrumentValidationRow(BaseModel):
     currency: str | None = None
     asset_type: str | None = None
     candidate_broker_tickers: list[str] = Field(default_factory=list)
+    validation_confidence: InstrumentIdentityConfidence = InstrumentIdentityConfidence.UNAVAILABLE
+    identity_caveats: list[str] = Field(default_factory=list)
     isa_eligibility: str
     reason: str
+
+    @model_validator(mode="after")
+    def _populate_identity_diagnostics(self) -> Self:
+        if self.validation_confidence == InstrumentIdentityConfidence.UNAVAILABLE:
+            self.validation_confidence = _identity_confidence(
+                self.status,
+                broker_ticker=self.broker_ticker,
+                isin=self.isin,
+                candidate_broker_tickers=self.candidate_broker_tickers,
+            )
+        if not self.identity_caveats:
+            self.identity_caveats = _identity_caveats(
+                self.status,
+                research_symbol=self.research_symbol,
+                broker_ticker=self.broker_ticker,
+                isin=self.isin,
+                candidate_broker_tickers=self.candidate_broker_tickers,
+            )
+        return self
 
 
 class InstrumentValidationResponse(BaseModel):
@@ -58,6 +102,29 @@ class InstrumentValidationResponse(BaseModel):
     instrument_count: int
     rows: list[InstrumentValidationRow]
     warnings: list[str] = Field(default_factory=list)
+
+
+def identity_diagnostics_for_row(row: InstrumentValidationRow) -> InstrumentIdentityDiagnostics:
+    """Return a compact identity diagnostic for one validation row."""
+
+    return InstrumentIdentityDiagnostics(
+        symbol=row.symbol,
+        research_symbol=row.research_symbol,
+        broker_ticker=row.broker_ticker,
+        isin=row.isin,
+        validation_status=row.status,
+        validation_confidence=row.validation_confidence,
+        candidate_broker_tickers=list(row.candidate_broker_tickers),
+        mismatch_caveats=list(row.identity_caveats),
+    )
+
+
+def identity_diagnostics_rows(
+    response: InstrumentValidationResponse,
+) -> list[InstrumentIdentityDiagnostics]:
+    """Return broker/research identity diagnostics for recommendation review surfaces."""
+
+    return [identity_diagnostics_for_row(row) for row in response.rows]
 
 
 def validate_recommendation_instruments(
@@ -190,10 +257,10 @@ def _validate_row(
         )
 
     if preferred is not None and len(matches) == 1:
-        return _matched_row(item, preferred)
+        return _matched_row(item, preferred, matches)
 
     if preferred is not None and _is_symbol_specific(candidate.research_symbol):
-        return _matched_row(item, preferred)
+        return _matched_row(item, preferred, matches)
 
     if matches:
         return InstrumentValidationRow(
@@ -225,9 +292,12 @@ def _validate_row(
 
 
 def _matched_row(
-    item: TradeRecommendation, instrument: Trading212Instrument
+    item: TradeRecommendation,
+    instrument: Trading212Instrument,
+    matches: Sequence[Trading212Instrument] | None = None,
 ) -> InstrumentValidationRow:
     candidate = item.candidate
+    candidate_tickers = _candidate_tickers(matches or [instrument])
     return InstrumentValidationRow(
         symbol=candidate.symbol,
         research_symbol=candidate.research_symbol,
@@ -238,7 +308,7 @@ def _matched_row(
         isin=instrument.isin,
         currency=_currency(instrument),
         asset_type=instrument.type,
-        candidate_broker_tickers=[instrument.ticker],
+        candidate_broker_tickers=candidate_tickers,
         isa_eligibility=_isa_eligibility_text(),
         reason="Research symbol matched a Trading 212 instrument metadata row.",
     )
@@ -327,6 +397,73 @@ def _is_london_listing(instrument: Trading212Instrument) -> bool:
     return (
         _currency(instrument) in {"GBP", "GBX"} or "_GB_" in upper_ticker or ticker.endswith("l_EQ")
     )
+
+
+def _candidate_tickers(instruments: Sequence[Trading212Instrument]) -> list[str]:
+    return list(dict.fromkeys(instrument.ticker for instrument in instruments))
+
+
+def _identity_confidence(
+    status: InstrumentValidationStatus,
+    *,
+    broker_ticker: str | None,
+    isin: str | None,
+    candidate_broker_tickers: Sequence[str],
+) -> InstrumentIdentityConfidence:
+    if status in {
+        InstrumentValidationStatus.NOT_CONFIGURED,
+        InstrumentValidationStatus.ERROR,
+    }:
+        return InstrumentIdentityConfidence.UNAVAILABLE
+    if status == InstrumentValidationStatus.NEEDS_MAPPING or not broker_ticker:
+        return InstrumentIdentityConfidence.LOW
+    if not isin or len(candidate_broker_tickers) > 1:
+        return InstrumentIdentityConfidence.MEDIUM
+    return InstrumentIdentityConfidence.HIGH
+
+
+def _identity_caveats(
+    status: InstrumentValidationStatus,
+    *,
+    research_symbol: str,
+    broker_ticker: str | None,
+    isin: str | None,
+    candidate_broker_tickers: Sequence[str],
+) -> list[str]:
+    caveats: list[str] = []
+    if broker_ticker:
+        broker_root = _base_symbol(broker_ticker)
+        research_root = _base_symbol(research_symbol)
+        if broker_root and research_root and broker_root != research_root:
+            caveats.append("BROKER_RESEARCH_SYMBOL_MISMATCH")
+        elif broker_ticker.strip().upper() != research_symbol.strip().upper():
+            caveats.append("BROKER_TICKER_NORMALISED")
+    else:
+        caveats.append("BROKER_TICKER_MISSING")
+
+    if status == InstrumentValidationStatus.NEEDS_MAPPING:
+        if len(candidate_broker_tickers) > 1:
+            caveats.append("MULTIPLE_BROKER_TICKERS_REQUIRE_MAPPING")
+        elif candidate_broker_tickers:
+            caveats.append("BROKER_TICKER_REQUIRES_MANUAL_CONFIRMATION")
+        else:
+            caveats.append("BROKER_TICKER_NOT_FOUND")
+    elif len(candidate_broker_tickers) > 1:
+        caveats.append("ALTERNATIVE_BROKER_TICKERS_PRESENT")
+
+    if status in {
+        InstrumentValidationStatus.NOT_CONFIGURED,
+        InstrumentValidationStatus.ERROR,
+    }:
+        caveats.append("BROKER_METADATA_UNAVAILABLE")
+    if isin is None:
+        caveats.append("ISIN_MISSING")
+    if status in {
+        InstrumentValidationStatus.BROKER_MATCHED,
+        InstrumentValidationStatus.HOLDING_CONFIRMED,
+    }:
+        caveats.append("ISA_ELIGIBILITY_REQUIRES_OPERATOR_REVIEW")
+    return list(dict.fromkeys(caveats))
 
 
 def _isa_eligibility_text() -> str:

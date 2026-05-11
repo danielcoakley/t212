@@ -16,7 +16,16 @@ from isa_system.portfolio.rebalancer import build_rebalance_plan
 from isa_system.services.deep_research import latest_deep_research_reviews
 from isa_system.services.instrument_validation import validate_recommendation_instruments
 from isa_system.services.market_scan import load_broker_market_scan_universe
+from isa_system.services.paper_persistence import (
+    PersistedPaperCycle,
+    load_paper_cycle,
+    persist_pilot_paper_workflow,
+)
 from isa_system.services.paper_simulation import PaperSimulationSnapshot, simulate_paper_fills
+from isa_system.services.pilot_workflow import (
+    PilotPaperWorkflowSummary,
+    build_pilot_paper_workflow,
+)
 from isa_system.services.portfolio_state import load_trading212_portfolio
 from isa_system.services.rebalance_preview import (
     RebalancePreviewSnapshot,
@@ -83,6 +92,51 @@ def preview_from_recommendations(
     request: RecommendationsPreviewRequest,
 ) -> RecommendationPreviewResponse:
     """Build preview-only sizing from selected research-gated recommendations."""
+
+    return _recommendation_preview_from_request(request)
+
+
+@router.post(
+    "/rebalances/from-recommendations/pilot-workflow",
+    response_model=PilotPaperWorkflowSummary,
+)
+def pilot_workflow_from_recommendations(
+    request: RecommendationsPreviewRequest,
+) -> PilotPaperWorkflowSummary:
+    """Return a schema-light paper workflow summary without side effects."""
+
+    preview_snapshot = _recommendation_preview_from_request(request)
+    return build_pilot_paper_workflow(preview_snapshot)
+
+
+@router.post(
+    "/rebalances/from-recommendations/paper-cycle",
+    response_model=PersistedPaperCycle,
+)
+def persist_paper_cycle_from_recommendations(
+    request: RecommendationsPreviewRequest,
+) -> PersistedPaperCycle:
+    """Persist selected recommendation preview rows as local paper evidence."""
+
+    preview_snapshot = _recommendation_preview_from_request(request)
+    workflow = build_pilot_paper_workflow(preview_snapshot)
+    return persist_pilot_paper_workflow(workflow)
+
+
+@router.get("/rebalances/paper-cycles/{cycle_id}", response_model=PersistedPaperCycle)
+def get_paper_cycle(cycle_id: str) -> PersistedPaperCycle:
+    """Reload a persisted paper cycle by deterministic cycle ID."""
+
+    cycle = load_paper_cycle(cycle_id)
+    if cycle is None:
+        raise HTTPException(status_code=404, detail="Paper cycle not found.")
+    return cycle
+
+
+def _recommendation_preview_from_request(
+    request: RecommendationsPreviewRequest,
+) -> RecommendationPreviewResponse:
+    """Build recommendation preview context for read-only workflow routes."""
 
     snapshot = load_trading212_portfolio()
     universe = load_broker_market_scan_universe()
