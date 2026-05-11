@@ -423,6 +423,35 @@ notes because it was paused. The orchestrator added tests and commits for the
 salvaged slices. Continue future parallel work only in explicit worktree
 directories.
 
+### 2026-05-11 - Tesla Management Diagnostics
+
+What changed: Expanded the read-only Management page into a clearer operational
+status surface with provider readiness, cache freshness, broker read-only state,
+deep research availability, live guardrail state, and a prioritized next safe
+action. Added stale/missing state language without adding controls or order
+submission paths.
+
+What remains: Future branches can wire in richer paper-cycle persistence and
+official-source freshness once those services exist.
+
+Files touched:
+
+- `src/isa_system/dashboard/pages/management.py`
+- `tests/unit/test_dashboard_management.py`
+- `docs/dashboard_layout.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest tests/unit/test_dashboard_management.py -q`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: This branch only reads local settings and broker snapshot
+state. It does not mutate runtime mode, live arming, kill switch state, or
+recommendation/pilot workflows.
+
 ### 2026-05-11 - MVP QA Guardrails
 
 What changed: Added focused offline regression coverage for preview-first MVP
