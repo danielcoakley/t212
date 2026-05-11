@@ -598,3 +598,46 @@ Integration concerns: Dashboard-only display changes; no recommendation scoring,
 provider fetch semantics, broker submission, live arming, mode mutation, or DB
 schema changes were made. Recommendation rows remain review/preview context, not
 order authority.
+
+### 2026-05-11 - Paper Intent Persistence
+
+What changed: Added a durable paper-cycle persistence slice for selected
+recommendation preview rows. The existing side-effect-free pilot workflow is
+unchanged; a new explicit save route persists deterministic paper cycle IDs,
+paper intent rows, simulated fill rows, expected-vs-simulated status, and fill
+source-kind evidence for notional, quantity, and fill price. A reload route can
+fetch the persisted cycle by ID.
+
+What remains: Full broker quote/lot-size paper execution and broker
+reconciliation are still not implemented. Recommendation and Preview dashboard
+surfaces are not changed in this slice, so displaying persisted cycles remains
+future work.
+
+Files touched:
+
+- `src/isa_system/db/models.py`
+- `src/isa_system/db/migrations/versions/0003_paper_cycles.py`
+- `src/isa_system/services/paper_persistence.py`
+- `src/isa_system/api/routers/rebalances.py`
+- `tests/unit/test_paper_persistence.py`
+- `tests/integration/test_mvp_realignment_api.py`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_paper_simulation.py tests/unit/test_pilot_workflow.py tests/unit/test_paper_persistence.py tests/integration/test_mvp_realignment_api.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Migration impact: Adds three operational SQLite/Postgres-compatible tables:
+`paper_cycles`, `paper_intents`, and `paper_simulated_fills`, plus lookup
+indexes by preview/simulation hash, cycle ID, intent ID, and research symbol.
+No existing table is altered and no live execution table or broker submit path
+is changed.
+
+Integration concerns: Merge this after branches that also touch
+`rebalances.py` or paper workflow tests. The new persistence route is an
+explicit side-effecting endpoint; `/rebalances/from-recommendations/preview` and
+`/rebalances/from-recommendations/pilot-workflow` remain preview-only and
+side-effect free.

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Index, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from isa_system.db.base import Base
@@ -241,3 +241,86 @@ class ResearchReview(Base):
     request_json: Mapped[str] = mapped_column(Text, nullable=False)
     response_json: Mapped[str] = mapped_column(Text, nullable=False)
     warnings_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+
+
+class PaperCycle(Base, TimestampMixin):
+    """Persisted paper workflow cycle derived from preview-only recommendation rows."""
+
+    __tablename__ = "paper_cycles"
+    __table_args__ = (
+        Index("ix_paper_cycles_preview_source_hash", "preview_source_hash"),
+        Index("ix_paper_cycles_simulation_hash", "simulation_hash"),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    mode: Mapped[str] = mapped_column(String(20), default="preview", nullable=False)
+    source_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    preview_source_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    simulation_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    workflow_status: Mapped[str] = mapped_column(String(40), nullable=False)
+    expected_vs_simulated_status: Mapped[str] = mapped_column(String(40), nullable=False)
+    selected_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    preview_eligible_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    simulated_fill_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_expected_notional_gbp: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    total_simulated_notional_gbp: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    total_simulated_fees_gbp: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    generated_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    warnings_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    workflow_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class PaperIntent(Base, TimestampMixin):
+    """Persisted selected recommendation preview row intended for paper simulation."""
+
+    __tablename__ = "paper_intents"
+    __table_args__ = (
+        Index("ix_paper_intents_cycle", "paper_cycle_id"),
+        Index("ix_paper_intents_research_symbol", "research_symbol"),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    paper_cycle_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    row_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    research_symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    broker_ticker: Mapped[str | None] = mapped_column(String(80))
+    side: Mapped[str] = mapped_column(String(10), nullable=False)
+    preview_eligible: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_weight: Mapped[Decimal] = mapped_column(Numeric(12, 8), nullable=False)
+    expected_notional_gbp: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    expected_fees_gbp: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    simulated_status: Mapped[str] = mapped_column(String(40), nullable=False)
+    expected_vs_simulated_status: Mapped[str] = mapped_column(String(40), nullable=False)
+    research_review_status: Mapped[str | None] = mapped_column(String(40))
+    blockers_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    warnings_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    next_action: Mapped[str] = mapped_column(Text, nullable=False)
+    preview_row_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class PaperSimulatedFill(Base, TimestampMixin):
+    """Persisted simulated fill linked back to a paper intent row."""
+
+    __tablename__ = "paper_simulated_fills"
+    __table_args__ = (
+        Index("ix_paper_simulated_fills_cycle", "paper_cycle_id"),
+        Index("ix_paper_simulated_fills_intent", "paper_intent_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    paper_cycle_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    paper_intent_id: Mapped[str | None] = mapped_column(String(80))
+    simulated_fill_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    side: Mapped[str] = mapped_column(String(10), nullable=False)
+    source_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    quantity: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    fill_price_account: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    notional_gbp: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    estimated_fees_gbp: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    notional_source_kind: Mapped[str] = mapped_column(String(80), nullable=False)
+    quantity_source_kind: Mapped[str] = mapped_column(String(80), nullable=False)
+    fill_price_source_kind: Mapped[str] = mapped_column(String(80), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
