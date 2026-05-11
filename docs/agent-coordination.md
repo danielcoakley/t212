@@ -538,3 +538,27 @@ Tests run:
 Integration concerns: The tests monkeypatch broker, market-data, and OpenAI
 seams to remain deterministic and offline. They assert existing preview-only
 semantics and do not add live order submission paths.
+
+### 2026-05-11 - Orchestrator Browser Smoke
+
+What changed: Started a fresh Streamlit server from
+`codex/parallel-partial-integration` on `http://127.0.0.1:8502/` and checked
+the integrated cockpit in the in-app browser.
+
+What remains: Repeat browser smoke after the second worker batch merges,
+especially if dashboard page files conflict during integration.
+
+Files touched:
+
+- `docs/agent-coordination.md`
+
+Checks run:
+
+- Browser smoke: Overview, Management, Preview, and Recommendations rendered
+  without visible Streamlit exceptions.
+- Verified Management shows read-only operational status sections.
+- Verified Preview keeps review-only/no-eligible-row messaging visible.
+- Verified Recommendations keeps review-only/source/status messaging visible.
+
+Integration concerns: The browser smoke used a separate local server on port
+8502 to avoid disturbing the user's existing `8501` app session.
