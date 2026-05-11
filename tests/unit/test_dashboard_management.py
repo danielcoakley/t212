@@ -28,6 +28,8 @@ def test_provider_status_marks_missing_optional_and_required_sources() -> None:
     assert by_provider["Trading 212"]["Status"] == "Missing"
     assert by_provider["OpenAI"]["Status"] == "Missing"
     assert by_provider["Companies House"]["Status"] == "Missing"
+    assert "not a historical OHLC feed" in by_provider["Trading 212"]["Source caveat"]
+    assert "point-in-time truth" in by_provider["FMP"]["Source caveat"]
 
 
 def test_provider_status_marks_configured_sources() -> None:
@@ -71,7 +73,9 @@ def test_cache_freshness_marks_stale_broker_snapshot() -> None:
     by_item = {row["Cache item"]: row for row in rows}
 
     assert by_item["Market-session cache"]["Status"] == "Fresh"
+    assert by_item["Market-session cache"]["Age"] == "1h 0m old"
     assert by_item["Broker snapshot"]["Status"] == "Stale"
+    assert by_item["Broker snapshot"]["Age"] == "1h 15m old"
     assert "Refresh dashboard cache" in by_item["Broker snapshot"]["Next safe action"]
 
 

@@ -2,16 +2,31 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
+from isa_system.dashboard.cache_policy import (
+    MarketCacheWindow,
+    cache_timestamp_detail,
+    cache_timestamp_status,
+    format_cache_age,
+)
 from isa_system.services.instrument_validation import InstrumentValidationResponse
 from isa_system.services.recommendation_handoff import RecommendationHandoffResponse
 from isa_system.services.recommendations import RecommendationsResponse
-from isa_system.utils.time import to_london
+from isa_system.utils.time import now_utc, require_utc, to_london
+
+FRESHNESS_SEVERITY = {
+    "Error": 0,
+    "Missing": 1,
+    "Check clock": 2,
+    "Stale": 3,
+    "Fresh": 4,
+}
 
 
 def recommendation_frame(response: RecommendationsResponse) -> pd.DataFrame:
@@ -62,6 +77,63 @@ def render_recommendation_summary(response: RecommendationsResponse, frame: pd.D
     )
     for warning in response.warnings:
         st.warning(warning)
+
+
+def recommendation_source_freshness_rows(
+    response: RecommendationsResponse,
+    handoff: RecommendationHandoffResponse,
+    instrument_validation: InstrumentValidationResponse,
+    *,
+    cache_window: MarketCacheWindow | None = None,
+    cache_source: str = "memory cache",
+    as_of_utc: datetime | None = None,
+) -> list[dict[str, str]]:
+    """Return compact source/cache diagnostics for the recommendation surface."""
+
+    as_of = require_utc(as_of_utc or now_utc())
+    rows = [
+        _freshness_row(
+            "Recommendation bundle",
+            response.retrieved_at_utc,
+            response.provider,
+            cache_window=cache_window,
+            as_of_utc=as_of,
+            caveat=(
+                "Scores are review signals from convenience/provider data; official-source "
+                "timing still needs review."
+            ),
+        ),
+        _freshness_row(
+            "Broker metadata validation",
+            instrument_validation.retrieved_at_utc,
+            instrument_validation.provider,
+            cache_window=cache_window,
+            as_of_utc=as_of,
+            override_status=_provider_gap_status(instrument_validation.status),
+            caveat=_broker_metadata_caveat(instrument_validation),
+        ),
+        _freshness_row(
+            "Research hand-off gate",
+            handoff.generated_at_utc,
+            handoff.provider,
+            cache_window=cache_window,
+            as_of_utc=as_of,
+            caveat="Eligible means preview sizing only; it is never order authority.",
+        ),
+    ]
+    if cache_window is not None:
+        rows.insert(
+            0,
+            _freshness_row(
+                "Market-session cache",
+                cache_window.opened_at_utc,
+                cache_source,
+                cache_window=cache_window,
+                as_of_utc=as_of,
+                caveat="Refresh when broker state or market context has changed materially.",
+            ),
+        )
+    return rows
 
 
 def render_action_chart(frame: pd.DataFrame) -> None:
@@ -229,6 +301,10 @@ def consolidated_recommendation_frame(
     response: RecommendationsResponse,
     handoff: RecommendationHandoffResponse,
     instrument_validation: InstrumentValidationResponse,
+    *,
+    cache_window: MarketCacheWindow | None = None,
+    cache_source: str = "memory cache",
+    as_of_utc: datetime | None = None,
 ) -> pd.DataFrame:
     """Return the MVP recommendation queue with evidence and gate status in one table."""
 
@@ -276,6 +352,16 @@ def consolidated_recommendation_frame(
             "eligible_for_preview": "preview_eligible",
         }
     )
+    if cache_window is not None:
+        merged = _add_source_freshness_columns(
+            merged,
+            response,
+            handoff,
+            instrument_validation,
+            cache_window=cache_window,
+            cache_source=cache_source,
+            as_of_utc=as_of_utc,
+        )
     merged = _add_review_scan_columns(merged)
     columns = [
         "research_symbol",
@@ -288,6 +374,9 @@ def consolidated_recommendation_frame(
         "research_gate",
         "preview_blockers",
         "source_caveats",
+        "source_freshness",
+        "source_age",
+        "cache_context",
         "next_step",
         "composite",
         "fundamental",
@@ -332,6 +421,9 @@ def render_consolidated_recommendation_table(frame: pd.DataFrame) -> None:
             "research_gate": st.column_config.TextColumn("Research gate"),
             "preview_blockers": st.column_config.TextColumn("Blockers"),
             "source_caveats": st.column_config.TextColumn("Source caveats"),
+            "source_freshness": st.column_config.TextColumn("Source freshness"),
+            "source_age": st.column_config.TextColumn("Source age"),
+            "cache_context": st.column_config.TextColumn("Cache context"),
             "next_step": st.column_config.TextColumn("Next step"),
             "composite": st.column_config.NumberColumn("Composite", format="%.2f"),
             "fundamental": st.column_config.NumberColumn("Fundamental", format="%.2f"),
@@ -353,6 +445,104 @@ def render_consolidated_recommendation_table(frame: pd.DataFrame) -> None:
             "rationale": st.column_config.TextColumn("Rationale"),
         },
     )
+
+
+def _add_source_freshness_columns(
+    frame: pd.DataFrame,
+    response: RecommendationsResponse,
+    handoff: RecommendationHandoffResponse,
+    instrument_validation: InstrumentValidationResponse,
+    *,
+    cache_window: MarketCacheWindow,
+    cache_source: str,
+    as_of_utc: datetime | None,
+) -> pd.DataFrame:
+    rows = recommendation_source_freshness_rows(
+        response,
+        handoff,
+        instrument_validation,
+        cache_window=cache_window,
+        cache_source=cache_source,
+        as_of_utc=as_of_utc,
+    )
+    status = _freshness_summary_status(rows)
+    age_parts = [
+        f"{row['Source item']}: {row['Age']}"
+        for row in rows
+        if row["Source item"] != "Market-session cache"
+    ]
+    frame = frame.copy()
+    frame["source_freshness"] = status
+    frame["source_age"] = "; ".join(age_parts)
+    frame["cache_context"] = f"{cache_window.label}; {cache_source}"
+    return frame
+
+
+def _freshness_row(
+    source_item: str,
+    observed_at_utc: datetime,
+    source: str,
+    *,
+    cache_window: MarketCacheWindow | None,
+    as_of_utc: datetime,
+    caveat: str,
+    override_status: str | None = None,
+) -> dict[str, str]:
+    observed = require_utc(observed_at_utc)
+    status = override_status or (
+        cache_timestamp_status(observed, cache_window, as_of_utc=as_of_utc)
+        if cache_window is not None
+        else "Fresh"
+    )
+    detail = (
+        cache_timestamp_detail(source_item, observed, cache_window, as_of_utc=as_of_utc)
+        if cache_window is not None and override_status is None
+        else f"{source_item} observed at {to_london(observed):%Y-%m-%d %H:%M %Z}."
+    )
+    return {
+        "Source item": source_item,
+        "Status": status,
+        "Age": format_cache_age(observed, as_of_utc),
+        "Observed": f"{to_london(observed):%Y-%m-%d %H:%M %Z}",
+        "Source": source,
+        "Detail": detail,
+        "Caveat": caveat,
+        "Next safe action": _freshness_next_action(status),
+    }
+
+
+def _provider_gap_status(status: str) -> str | None:
+    if status == "not_configured":
+        return "Missing"
+    if status == "error":
+        return "Error"
+    return None
+
+
+def _broker_metadata_caveat(response: InstrumentValidationResponse) -> str:
+    if response.status == "not_configured":
+        return "Trading 212 credentials are missing; broker metadata cannot confirm candidates."
+    if response.status == "error":
+        return "Trading 212 metadata failed; do not rely on broker matches until refreshed."
+    if response.instrument_count == 0:
+        return "No broker metadata rows were available; symbol mapping remains unconfirmed."
+    return "Read-only broker metadata supports mapping review; it is not ISA or order approval."
+
+
+def _freshness_next_action(status: str) -> str:
+    if status == "Fresh":
+        return "Continue review; recommendations remain preview-only."
+    if status == "Stale":
+        return "Refresh market data before relying on this source."
+    if status == "Check clock":
+        return "Check local clock/timezone before relying on timestamps."
+    if status == "Missing":
+        return "Configure the missing provider or keep the affected rows blocked."
+    return "Resolve the source error or work only with local preview context."
+
+
+def _freshness_summary_status(rows: list[dict[str, str]]) -> str:
+    return min((row["Status"] for row in rows), key=lambda status: FRESHNESS_SEVERITY[status])
 
 
 def _add_review_scan_columns(frame: pd.DataFrame) -> pd.DataFrame:
@@ -443,6 +633,11 @@ def _source_caveats(row: pd.Series) -> str:
     broker_validation = _text(row.get("broker_validation"))
     if broker_validation not in {"BROKER_MATCHED", "HOLDING_CONFIRMED"}:
         caveats.append("BROKER_METADATA_NOT_CONFIRMED")
+    freshness = _text(row.get("source_freshness"))
+    if freshness in {"Stale", "Check clock"}:
+        caveats.append("SOURCE_REFRESH_RECOMMENDED")
+    elif freshness in {"Missing", "Error"}:
+        caveats.append("SOURCE_PROVIDER_GAP")
     research_gate = _research_gate(row)
     if research_gate.startswith("Required:"):
         caveats.append("DEEP_RESEARCH_NOT_PASSED")

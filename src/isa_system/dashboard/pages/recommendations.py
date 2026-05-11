@@ -8,6 +8,7 @@ from isa_system.dashboard.data import broker_snapshot, recommendation_workflow
 from isa_system.dashboard.recommendation_charts import (
     consolidated_recommendation_frame,
     recommendation_frame,
+    recommendation_source_freshness_rows,
     render_action_chart,
     render_component_heatmap,
     render_consolidated_recommendation_table,
@@ -70,7 +71,20 @@ def render(
         )
         progress.progress(100, text="Recommendation workflow ready.")
         status.update(label="Recommendation workflow ready.", state="complete", expanded=False)
-    queue = consolidated_recommendation_frame(response, handoff, validation)
+    source_rows = recommendation_source_freshness_rows(
+        response,
+        handoff,
+        validation,
+        cache_window=workflow.cache_window,
+        cache_source=workflow.cache_source,
+    )
+    queue = consolidated_recommendation_frame(
+        response,
+        handoff,
+        validation,
+        cache_window=workflow.cache_window,
+        cache_source=workflow.cache_source,
+    )
     score_frame = recommendation_frame(response)
 
     render_recommendation_summary(response, score_frame)
@@ -80,6 +94,13 @@ def render(
     cols[2].metric("Preview eligible", str(handoff.eligible_count))
     cols[3].metric("Needs research/review", str(handoff.review_required_count))
     cols[4].metric("Blocked", str(handoff.blocked_count))
+
+    st.subheader("Source Freshness")
+    st.caption(
+        "Freshness diagnostics show source age and provider gaps for review. "
+        "They do not change scoring or approve orders."
+    )
+    st.dataframe(source_rows, hide_index=True, use_container_width=True)
 
     st.subheader("Recommendation Queue")
     st.caption(

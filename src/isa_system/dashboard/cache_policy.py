@@ -12,6 +12,7 @@ from isa_system.utils.time import LONDON, now_utc, require_utc, to_london
 NEW_YORK = ZoneInfo("America/New_York")
 LONDON_OPEN = time(8, 0)
 US_OPEN = time(9, 30)
+FRESHNESS_CLOCK_TOLERANCE = timedelta(minutes=5)
 
 
 class MarketCacheWindow(BaseModel):
@@ -22,6 +23,69 @@ class MarketCacheWindow(BaseModel):
     opened_at_utc: datetime
     next_refresh_at_utc: datetime
     manual_refresh_hint: str
+
+
+def format_cache_age(observed_at_utc: datetime, as_of_utc: datetime | None = None) -> str:
+    """Return a compact operator-facing age label for a cache/source timestamp."""
+
+    observed = require_utc(observed_at_utc)
+    as_of = require_utc(as_of_utc or now_utc())
+    age = as_of - observed
+    if age < -FRESHNESS_CLOCK_TOLERANCE:
+        return "ahead of local clock"
+    if age.total_seconds() < 0:
+        return "less than 5m old"
+    return _format_duration(age)
+
+
+def cache_timestamp_status(
+    observed_at_utc: datetime,
+    window: MarketCacheWindow,
+    *,
+    as_of_utc: datetime | None = None,
+) -> str:
+    """Classify whether a source timestamp belongs to the current cache window."""
+
+    observed = require_utc(observed_at_utc)
+    as_of = require_utc(as_of_utc or now_utc())
+    opened_at = require_utc(window.opened_at_utc)
+    next_refresh = require_utc(window.next_refresh_at_utc)
+    if observed > as_of + FRESHNESS_CLOCK_TOLERANCE or as_of < opened_at:
+        return "Check clock"
+    if as_of >= next_refresh or observed < opened_at:
+        return "Stale"
+    return "Fresh"
+
+
+def cache_timestamp_detail(
+    label: str,
+    observed_at_utc: datetime,
+    window: MarketCacheWindow,
+    *,
+    as_of_utc: datetime | None = None,
+) -> str:
+    """Return concise freshness language for one source timestamp."""
+
+    observed = require_utc(observed_at_utc)
+    as_of = require_utc(as_of_utc or now_utc())
+    opened_at = require_utc(window.opened_at_utc)
+    next_refresh = require_utc(window.next_refresh_at_utc)
+    observed_london = _format_london(observed)
+    if observed > as_of + FRESHNESS_CLOCK_TOLERANCE:
+        return f"{label} timestamp {observed_london} is ahead of the current clock."
+    if as_of < opened_at:
+        return f"{window.label} opens at {_format_london(opened_at)}, after the current clock."
+    if as_of >= next_refresh:
+        return (
+            f"{label} timestamp {observed_london}; refresh was due at "
+            f"{_format_london(next_refresh)}."
+        )
+    if observed < opened_at:
+        return (
+            f"{label} timestamp {observed_london} is before the current "
+            f"{window.label.lower()} opened."
+        )
+    return f"{label} timestamp {observed_london} sits inside the current cache window."
 
 
 def current_market_cache_window(as_of_utc: datetime | None = None) -> MarketCacheWindow:
@@ -72,3 +136,18 @@ def _display_label(label: str) -> str:
         "london_open": "London open cache",
         "us_open": "US open cache",
     }[label]
+
+
+def _format_duration(delta: timedelta) -> str:
+    total_minutes = max(0, int(delta.total_seconds() // 60))
+    days, remainder = divmod(total_minutes, 24 * 60)
+    hours, minutes = divmod(remainder, 60)
+    if days:
+        return f"{days}d {hours}h old"
+    if hours:
+        return f"{hours}h {minutes}m old"
+    return f"{minutes}m old"
+
+
+def _format_london(value: datetime) -> str:
+    return f"{to_london(value):%Y-%m-%d %H:%M %Z}"

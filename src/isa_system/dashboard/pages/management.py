@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 import streamlit as st
 from pydantic import SecretStr
 
-from isa_system.dashboard.cache_policy import MarketCacheWindow
+from isa_system.dashboard.cache_policy import (
+    MarketCacheWindow,
+    cache_timestamp_detail,
+    cache_timestamp_status,
+    format_cache_age,
+)
 from isa_system.dashboard.data import broker_snapshot, cache_window
 from isa_system.domain.enums import RuntimeMode
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
@@ -16,7 +21,6 @@ from isa_system.settings import Settings, get_settings
 from isa_system.utils.time import now_utc, require_utc, to_london
 
 BROKER_READY_STATUSES = {"live", "demo"}
-FUTURE_CLOCK_TOLERANCE = timedelta(minutes=5)
 
 
 def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
@@ -76,6 +80,7 @@ def provider_status_rows(settings: Settings) -> list[dict[str, str]]:
             _trading212_provider_status(settings),
             "Read-only account, positions, and broker universe.",
             "Required for live portfolio context.",
+            "Broker/account truth for holdings and tradable universe; not a historical OHLC feed.",
             "Add both Trading 212 credentials, then refresh dashboard cache."
             if not _trading212_configured(settings)
             else "Use as read-only account and broker-universe context.",
@@ -85,6 +90,10 @@ def provider_status_rows(settings: Settings) -> list[dict[str, str]]:
             _configured_status(settings.openai_api_key),
             "Deep research gate for buy/add preview approval.",
             "Optional, but buy/add rows cannot pass the gate without it.",
+            (
+                "Thesis review only; it never overrides deterministic blockers "
+                "or creates order authority."
+            ),
             "Add OPENAI_API_KEY before expecting BUY/add research approval."
             if not _has_secret(settings.openai_api_key)
             else "Run deep research for BUY/add candidates before preview sizing.",
@@ -94,6 +103,7 @@ def provider_status_rows(settings: Settings) -> list[dict[str, str]]:
             _configured_status(settings.alpha_vantage_api_key),
             "Convenience EOD prices and selected research data.",
             "Optional; rate-constrained fallback/enrichment source.",
+            "Convenience market data; official sources and broker context still need review.",
             "Use as convenience enrichment; monitor rate limits."
             if _has_secret(settings.alpha_vantage_api_key)
             else "Leave missing unless enrichment quality requires this feed.",
@@ -103,6 +113,7 @@ def provider_status_rows(settings: Settings) -> list[dict[str, str]]:
             _configured_status(settings.fmp_api_key),
             "Convenience fundamentals and company context.",
             "Optional enrichment source.",
+            "Convenience fundamentals; do not treat as official point-in-time truth.",
             "Use as convenience enrichment; official sources still win for evidence."
             if _has_secret(settings.fmp_api_key)
             else "Leave missing unless fundamentals enrichment is needed.",
@@ -112,6 +123,7 @@ def provider_status_rows(settings: Settings) -> list[dict[str, str]]:
             _configured_status(settings.fred_api_key),
             "Macro and regime context.",
             "Optional for MVP.",
+            "Macro overlay only; it should not silently block or approve recommendation rows.",
             "Use for macro overlays only when they are part of the review."
             if _has_secret(settings.fred_api_key)
             else "Leave missing unless macro overlays are part of the review.",
@@ -121,6 +133,7 @@ def provider_status_rows(settings: Settings) -> list[dict[str, str]]:
             _configured_status(settings.companies_house_api_key),
             "UK issuer identity and filing history.",
             "Important for post-MVP identity mapping.",
+            "Official UK context; preserve available-at timing when deeper ingestion lands.",
             "Use for official UK identity checks; preserve availability timing."
             if _has_secret(settings.companies_house_api_key)
             else "Configure before relying on official UK identity checks.",
@@ -130,6 +143,7 @@ def provider_status_rows(settings: Settings) -> list[dict[str, str]]:
             "Configured" if settings.sec_user_agent else "Missing",
             "Official US filings.",
             "Use a clear user agent before depending on this source.",
+            "Official filing context; preserve filing availability timing.",
             "Use for official US filing evidence; preserve availability timing."
             if settings.sec_user_agent
             else "Set SEC_USER_AGENT before depending on US filing evidence.",
@@ -139,6 +153,7 @@ def provider_status_rows(settings: Settings) -> list[dict[str, str]]:
             _social_provider_status(settings),
             "Low-weight optional sentiment overlays.",
             "Disabled by default; official sources remain higher priority.",
+            "Sentiment is context only and must not create approval for BUY/add rows.",
             _social_provider_action(settings),
         ),
     ]
@@ -193,6 +208,7 @@ def cache_freshness_rows(
         window_row = _cache_row(
             "Market-session cache",
             "Check clock",
+            format_cache_age(opened_at, as_of),
             f"{window.label} opens at {_format_london(opened_at)}, after the current clock.",
             "Check local clock/timezone before relying on cache timestamps.",
         )
@@ -200,6 +216,7 @@ def cache_freshness_rows(
         window_row = _cache_row(
             "Market-session cache",
             "Stale",
+            format_cache_age(opened_at, as_of),
             f"{window.label} opened at {_format_london(opened_at)}; refresh was due at "
             f"{_format_london(next_refresh)}.",
             "Refresh dashboard cache before relying on market context.",
@@ -208,6 +225,7 @@ def cache_freshness_rows(
         window_row = _cache_row(
             "Market-session cache",
             "Fresh",
+            format_cache_age(opened_at, as_of),
             f"{window.label} opened at {_format_london(opened_at)}; next refresh is "
             f"{_format_london(next_refresh)}.",
             "No action unless broker state or market context changed materially.",
@@ -217,6 +235,7 @@ def cache_freshness_rows(
         broker_row = _cache_row(
             "Broker snapshot",
             "Missing",
+            "not available",
             "No Trading 212 account snapshot is available because credentials are not configured.",
             "Add Trading 212 read-only credentials, then refresh dashboard cache.",
         )
@@ -224,32 +243,24 @@ def cache_freshness_rows(
         broker_row = _cache_row(
             "Broker snapshot",
             "Error",
+            format_cache_age(snapshot_at, as_of),
             f"Trading 212 read failed at {_format_london(snapshot_at)}.",
             "Resolve the provider error or work only with local preview context.",
         )
-    elif snapshot_at > as_of + FUTURE_CLOCK_TOLERANCE:
-        broker_row = _cache_row(
-            "Broker snapshot",
-            "Check clock",
-            f"Broker snapshot timestamp {_format_london(snapshot_at)} is ahead of the "
-            "current clock.",
-            "Check local clock/timezone before relying on broker freshness.",
-        )
-    elif snapshot_at < opened_at:
-        broker_row = _cache_row(
-            "Broker snapshot",
-            "Stale",
-            f"Broker snapshot was retrieved at {_format_london(snapshot_at)}, before the current "
-            f"{window.label.lower()} opened.",
-            "Refresh dashboard cache before reviewing account state or previews.",
-        )
     else:
+        broker_status = cache_timestamp_status(snapshot_at, window, as_of_utc=as_of)
+        if broker_status == "Fresh":
+            next_action = "No action unless account state changed at the broker."
+        elif broker_status == "Check clock":
+            next_action = "Check local clock/timezone before relying on broker freshness."
+        else:
+            next_action = "Refresh dashboard cache before reviewing account state or previews."
         broker_row = _cache_row(
             "Broker snapshot",
-            "Fresh",
-            f"Read-only {snapshot.environment} broker context was retrieved at "
-            f"{_format_london(snapshot_at)}.",
-            "No action unless account state changed at the broker.",
+            broker_status,
+            format_cache_age(snapshot_at, as_of),
+            cache_timestamp_detail("Broker snapshot", snapshot_at, window, as_of_utc=as_of),
+            next_action,
         )
 
     return [window_row, broker_row]
@@ -400,6 +411,7 @@ def _provider_row(
     status: str,
     purpose: str,
     mvp_impact: str,
+    source_caveat: str,
     next_safe_action: str,
 ) -> dict[str, str]:
     return {
@@ -407,6 +419,7 @@ def _provider_row(
         "Status": status,
         "Purpose": purpose,
         "MVP impact": mvp_impact,
+        "Source caveat": source_caveat,
         "Next safe action": next_safe_action,
     }
 
@@ -420,10 +433,17 @@ def _status_row(area: str, status: str, state: str, next_safe_action: str) -> di
     }
 
 
-def _cache_row(item: str, status: str, state: str, next_safe_action: str) -> dict[str, str]:
+def _cache_row(
+    item: str,
+    status: str,
+    age: str,
+    state: str,
+    next_safe_action: str,
+) -> dict[str, str]:
     return {
         "Cache item": item,
         "Status": status,
+        "Age": age,
         "State": state,
         "Next safe action": next_safe_action,
     }
@@ -466,7 +486,7 @@ def _provider_readiness(settings: Settings) -> tuple[str, str, str]:
 
 
 def _cache_freshness_summary(rows: list[dict[str, str]]) -> tuple[str, str, str]:
-    status_order = ["Error", "Missing", "Stale", "Check clock"]
+    status_order = ["Error", "Missing", "Check clock", "Stale"]
     for status in status_order:
         for row in rows:
             if row["Status"] == status:

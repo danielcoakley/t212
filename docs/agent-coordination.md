@@ -562,3 +562,39 @@ Checks run:
 
 Integration concerns: The browser smoke used a separate local server on port
 8502 to avoid disturbing the user's existing `8501` app session.
+
+### 2026-05-11 - Source Freshness Diagnostics
+
+What changed: Added shared dashboard cache/source age helpers, explicit age
+labels on Management cache freshness rows, provider source caveats, and a
+Recommendation Source Freshness diagnostic table. The consolidated
+recommendation queue can now show source freshness, source age, cache context,
+and stale/provider-gap caveats while preserving review-only language.
+
+What remains: Future official-source ingestion should add real per-evidence
+`available_at_utc` coverage once those services exist; this slice only displays
+freshness from existing cache, broker snapshot, recommendation, validation, and
+handoff timestamps.
+
+Files touched:
+
+- `src/isa_system/dashboard/cache_policy.py`
+- `src/isa_system/dashboard/pages/management.py`
+- `src/isa_system/dashboard/pages/recommendations.py`
+- `src/isa_system/dashboard/recommendation_charts.py`
+- `tests/unit/test_dashboard_cache_policy.py`
+- `tests/unit/test_dashboard_management.py`
+- `tests/unit/test_dashboard_recommendation_queue.py`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_dashboard_cache_policy.py tests/unit/test_dashboard_management.py tests/unit/test_dashboard_recommendation_queue.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: Dashboard-only display changes; no recommendation scoring,
+provider fetch semantics, broker submission, live arming, mode mutation, or DB
+schema changes were made. Recommendation rows remain review/preview context, not
+order authority.
