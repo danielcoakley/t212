@@ -728,3 +728,33 @@ Checks run:
 Integration concerns: The second batch added a DB migration plus a new report
 router. Run a full integration pass after any branch touches the report/paper
 service boundary or Preview page rendering.
+
+### 2026-05-11 - Paper Cycle Review Surface
+
+What changed: Added a small Preview-page saved paper-cycle review surface.
+Operators can paste a persisted cycle ID, reload local paper evidence, and see
+cycle ID, persistence status, selected/eligible/fill counts, expected and
+simulated totals, warnings, intent/fill evidence, and explicit unreconciled
+status. The active pilot paper workflow now also shows reconciliation status and
+save/reload endpoint guidance when the workflow has not been persisted.
+
+What remains: Full broker reconciliation, quote/lot-size paper execution, and
+report integration for supplied persisted cycles remain separate workstreams.
+
+Files touched:
+
+- `src/isa_system/dashboard/pages/preview.py`
+- `tests/unit/test_dashboard_preview.py`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_dashboard_preview.py tests/unit/test_pilot_workflow.py tests/unit/test_paper_persistence.py tests/integration/test_mvp_realignment_api.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The Preview page now imports the paper persistence read
+service and loads cycles only by operator-supplied ID. No live Trading 212
+POST/order submission path, runtime arming, DB schema, or recommendation
+service semantics changed.
