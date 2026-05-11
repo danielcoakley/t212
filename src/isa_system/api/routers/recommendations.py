@@ -10,6 +10,7 @@ from isa_system.services.instrument_validation import (
     InstrumentValidationResponse,
     validate_recommendation_instruments,
 )
+from isa_system.services.market_scan import MarketScanUniverse, load_market_scan_universe
 from isa_system.services.portfolio_state import load_trading212_portfolio
 from isa_system.services.recommendation_handoff import (
     RecommendationHandoffResponse,
@@ -43,11 +44,38 @@ def recommendations(
     """Return review-only trade recommendations for holdings and market candidates."""
 
     snapshot = load_trading212_portfolio()
+    scan_universe = load_market_scan_universe()
+    response = build_recommendations(
+        snapshot,
+        candidates=candidates,
+        include_default_candidates=include_defaults,
+        default_candidates=scan_universe.symbols,
+        include_llm_rationale=include_llm,
+    )
+    response.warnings.extend(scan_universe.warnings)
+    return response
+
+
+@router.get("/scan-universe", response_model=MarketScanUniverse)
+def scan_universe() -> MarketScanUniverse:
+    """Return the configured wider-market scan universe."""
+
+    return load_market_scan_universe()
+
+
+def _recommendations_for_validation(
+    candidates: list[str] | None, include_defaults: bool
+) -> RecommendationsResponse:
+    """Build recommendations using the configured scan universe."""
+
+    snapshot = load_trading212_portfolio()
+    universe = load_market_scan_universe()
     return build_recommendations(
         snapshot,
         candidates=candidates,
         include_default_candidates=include_defaults,
-        include_llm_rationale=include_llm,
+        default_candidates=universe.symbols,
+        include_llm_rationale=False,
     )
 
 
@@ -69,13 +97,7 @@ def recommendation_handoff(
 ) -> RecommendationHandoffResponse:
     """Return review-only preview hand-off readiness for recommendations."""
 
-    snapshot = load_trading212_portfolio()
-    response = build_recommendations(
-        snapshot,
-        candidates=candidates,
-        include_default_candidates=include_defaults,
-        include_llm_rationale=False,
-    )
+    response = _recommendations_for_validation(candidates, include_defaults)
     instrument_validation = validate_recommendation_instruments(response)
     return build_recommendation_handoff(response, instrument_validation=instrument_validation)
 
@@ -98,11 +120,5 @@ def recommendation_instrument_validation(
 ) -> InstrumentValidationResponse:
     """Return read-only Trading 212 instrument metadata validation for recommendations."""
 
-    snapshot = load_trading212_portfolio()
-    response = build_recommendations(
-        snapshot,
-        candidates=candidates,
-        include_default_candidates=include_defaults,
-        include_llm_rationale=False,
-    )
+    response = _recommendations_for_validation(candidates, include_defaults)
     return validate_recommendation_instruments(response)

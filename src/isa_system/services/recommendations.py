@@ -110,6 +110,7 @@ def build_recommendations(
     *,
     candidates: Sequence[str] | None = None,
     include_default_candidates: bool = True,
+    default_candidates: Sequence[str] | None = None,
     provider: ValuationProvider | None = None,
     as_of_utc: datetime | None = None,
     include_llm_rationale: bool = False,
@@ -122,6 +123,7 @@ def build_recommendations(
         snapshot,
         candidates=candidates,
         include_default_candidates=include_default_candidates,
+        default_candidates=default_candidates,
     )
     research_symbols = sorted(
         {candidate.research_symbol for candidate in recommendation_candidates}
@@ -161,6 +163,7 @@ def build_recommendations_from_static_data(
     *,
     candidates: Sequence[str] | None = None,
     include_default_candidates: bool = True,
+    default_candidates: Sequence[str] | None = None,
     as_of_utc: datetime | None = None,
     include_llm_rationale: bool = False,
 ) -> RecommendationsResponse:
@@ -170,6 +173,7 @@ def build_recommendations_from_static_data(
         snapshot,
         candidates=candidates,
         include_default_candidates=include_default_candidates,
+        default_candidates=default_candidates,
         provider=StaticValuationProvider(data),
         as_of_utc=as_of_utc,
         include_llm_rationale=include_llm_rationale,
@@ -181,6 +185,7 @@ def _recommendation_candidates(
     *,
     candidates: Sequence[str] | None,
     include_default_candidates: bool,
+    default_candidates: Sequence[str] | None,
 ) -> list[RecommendationCandidate]:
     rows: list[RecommendationCandidate] = []
     seen: set[str] = set()
@@ -191,7 +196,8 @@ def _recommendation_candidates(
 
     watchlist = _normalise_symbols(candidates)
     if include_default_candidates:
-        watchlist.extend(symbol for symbol in DEFAULT_MARKET_CANDIDATES if symbol not in watchlist)
+        defaults = _normalise_symbols(default_candidates) or DEFAULT_MARKET_CANDIDATES
+        watchlist.extend(symbol for symbol in defaults if symbol not in watchlist)
 
     for symbol in watchlist:
         key = symbol.upper()

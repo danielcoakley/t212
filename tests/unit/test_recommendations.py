@@ -83,6 +83,28 @@ def test_recommendations_block_when_minimum_data_is_missing() -> None:
     assert "No valuation provider data for VOD.L." in response.warnings
 
 
+def test_recommendations_use_configured_default_candidates() -> None:
+    """The wider-market scan can be supplied by a config-backed universe."""
+
+    response = build_recommendations_from_static_data(
+        _snapshot(),
+        {
+            "GSK.L": _provider_row(
+                "GSK.L",
+                valuation=ValuationMetrics(trailing_pe=11.0, dividend_yield=0.04),
+            )
+        },
+        include_default_candidates=True,
+        default_candidates=["GSK.L"],
+        as_of_utc=datetime(2026, 5, 10, tzinfo=UTC),
+    )
+
+    symbols = {item.candidate.research_symbol for item in response.recommendations}
+
+    assert "GSK.L" in symbols
+    assert "AAPL" not in symbols
+
+
 def test_recommendations_block_near_catalyst_blackout() -> None:
     """Upcoming catalysts inside the no-buy window block a candidate."""
 

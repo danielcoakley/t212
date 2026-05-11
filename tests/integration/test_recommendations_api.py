@@ -58,18 +58,27 @@ def test_recommendations_endpoint_is_offline_safe(monkeypatch: pytest.MonkeyPatc
         "isa_system.api.routers.recommendations.load_trading212_portfolio",
         fake_snapshot,
     )
+
+    def fake_recommendations(
+        snapshot: BrokerPortfolioSnapshot,
+        candidates: list[str] | None,
+        include_default_candidates: bool,
+        default_candidates: list[str],
+        include_llm_rationale: bool,
+    ) -> object:
+        return build_recommendations_from_static_data(
+            snapshot,
+            static_data,
+            candidates=candidates,
+            include_default_candidates=include_default_candidates,
+            default_candidates=default_candidates,
+            include_llm_rationale=include_llm_rationale,
+            as_of_utc=datetime(2026, 5, 10, tzinfo=UTC),
+        )
+
     monkeypatch.setattr(
         "isa_system.api.routers.recommendations.build_recommendations",
-        lambda snapshot, candidates, include_default_candidates, include_llm_rationale: (
-            build_recommendations_from_static_data(
-                snapshot,
-                static_data,
-                candidates=candidates,
-                include_default_candidates=include_default_candidates,
-                include_llm_rationale=include_llm_rationale,
-                as_of_utc=datetime(2026, 5, 10, tzinfo=UTC),
-            )
-        ),
+        fake_recommendations,
     )
 
     response = TestClient(app).get(
@@ -90,6 +99,13 @@ def test_recommendations_endpoint_is_offline_safe(monkeypatch: pytest.MonkeyPatc
         "REVIEW_SELL",
         "BLOCKED",
     }
+
+    scan_response = TestClient(app).get("/recommendations/scan-universe")
+
+    assert scan_response.status_code == 200
+    scan_payload = scan_response.json()
+    assert "symbols" in scan_payload
+    assert scan_payload["symbols"]
 
     handoff_response = TestClient(app).get(
         "/recommendations/handoff",

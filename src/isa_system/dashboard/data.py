@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from isa_system.services.market_scan import load_market_scan_universe
 from isa_system.services.paper_simulation import PaperSimulationSnapshot, simulate_paper_fills
 from isa_system.services.portfolio_state import (
     BrokerPortfolioSnapshot,
@@ -112,10 +113,12 @@ def _recommendations_payload(
     """Return cached review-only recommendations."""
 
     snapshot = BrokerPortfolioSnapshot.model_validate(broker_payload)
+    scan_universe = load_market_scan_universe()
     return build_recommendations(
         snapshot,
         candidates=candidates,
         include_default_candidates=include_defaults,
+        default_candidates=scan_universe.symbols,
         include_llm_rationale=include_llm,
     ).model_dump(mode="json")
 

@@ -20,6 +20,7 @@ from isa_system.dashboard.recommendation_charts import (
     render_recommendation_table,
 )
 from isa_system.services.instrument_validation import validate_recommendation_instruments
+from isa_system.services.market_scan import load_market_scan_universe
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
 from isa_system.services.recommendation_handoff import build_recommendation_handoff
 
@@ -28,6 +29,7 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
     """Render holdings and market-scan recommendations."""
 
     snapshot = snapshot or broker_snapshot()
+    scan_universe = load_market_scan_universe()
     st.title("Recommendations")
     st.warning(
         "Recommendations are review-only. They cannot create orders, set targets, or override "
@@ -41,8 +43,9 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
             value="",
             help="Comma or newline separated research symbols, for example VOD.L, GSK.L, NVDA.",
         )
-        include_defaults = st.checkbox("Include default wider-market scan", value=True)
+        include_defaults = st.checkbox("Include configured wider-market scan", value=True)
         include_llm = st.checkbox("Use optional OpenAI rationale", value=False)
+        st.caption(f"Configured scan: {scan_universe.name} ({len(scan_universe.symbols)} symbols).")
 
     candidates = tuple(
         item.strip()
@@ -63,6 +66,26 @@ def render(snapshot: BrokerPortfolioSnapshot | None = None) -> None:
     handoff_rows = handoff_frame(handoff)
 
     render_recommendation_summary(response, frame)
+
+    st.subheader("Configured Scan Universe")
+    st.caption(
+        "This is the current wider-market scan seed. Symbols are discovery candidates only "
+        "until broker, ISA, liquidity, and official-source validation pass."
+    )
+    st.dataframe(
+        [
+            {"symbol": symbol, "source": scan_universe.source_path}
+            for symbol in scan_universe.symbols
+        ],
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "symbol": st.column_config.TextColumn("Symbol"),
+            "source": st.column_config.TextColumn("Config source"),
+        },
+    )
+    for warning in scan_universe.warnings:
+        st.warning(warning)
 
     st.subheader("Action Queue")
     render_action_chart(frame)
