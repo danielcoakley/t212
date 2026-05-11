@@ -1,0 +1,530 @@
+"""Recommendation dashboard charts and tables."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import altair as alt
+import pandas as pd
+import streamlit as st
+
+from isa_system.services.instrument_validation import InstrumentValidationResponse
+from isa_system.services.recommendation_handoff import RecommendationHandoffResponse
+from isa_system.services.recommendations import RecommendationsResponse
+from isa_system.utils.time import to_london
+
+
+def recommendation_frame(response: RecommendationsResponse) -> pd.DataFrame:
+    """Flatten recommendation rows for dashboard display."""
+
+    rows: list[dict[str, Any]] = []
+    for item in response.recommendations:
+        payload = item.model_dump(mode="json")
+        candidate = payload["candidate"]
+        scores = payload["scores"]
+        llm = payload.get("llm_rationale") or {}
+        rows.append(
+            {
+                "symbol": candidate["symbol"],
+                "research_symbol": candidate["research_symbol"],
+                "source": candidate["source"],
+                "name": candidate.get("name"),
+                "action": payload["action"],
+                "composite": scores["composite"],
+                "fundamental": _score(scores, "fundamental_valuation"),
+                "technical": _score(scores, "technical"),
+                "sentiment": _score(scores, "sentiment_news"),
+                "catalysts": _score(scores, "catalysts"),
+                "risk_flags": ", ".join(payload.get("risk_flags") or []),
+                "rationale": " ".join(payload.get("rationale") or []),
+                "llm_enabled": llm.get("enabled"),
+                "llm_headline": llm.get("headline"),
+                "warnings": "; ".join(payload.get("warnings") or []),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def render_recommendation_summary(response: RecommendationsResponse, frame: pd.DataFrame) -> None:
+    """Render recommendation coverage metrics."""
+
+    action_counts = frame["action"].value_counts().to_dict() if not frame.empty else {}
+    cols = st.columns(5)
+    cols[0].metric("Recommendations", str(len(frame)))
+    cols[1].metric("Review buys", str(action_counts.get("REVIEW_BUY", 0)))
+    cols[2].metric("Holds", str(action_counts.get("HOLD", 0)))
+    cols[3].metric("Watch", str(action_counts.get("WATCH", 0)))
+    cols[4].metric("Blocked", str(action_counts.get("BLOCKED", 0)))
+    retrieved = to_london(response.retrieved_at_utc)
+    st.caption(
+        f"Recommendations generated from {response.provider} at "
+        f"{retrieved:%Y-%m-%d %H:%M:%S %Z}. Actions are review-only."
+    )
+    for warning in response.warnings:
+        st.warning(warning)
+
+
+def render_action_chart(frame: pd.DataFrame) -> None:
+    """Render composite score by action."""
+
+    if frame.empty:
+        st.info("No recommendation rows are available.")
+        return
+    st.altair_chart(
+        alt.Chart(frame)
+        .mark_bar(size=28)
+        .encode(
+            x=alt.X("composite:Q", title="Composite score", scale=alt.Scale(domain=[-1, 1])),
+            y=alt.Y("research_symbol:N", sort="-x", title=None),
+            color=alt.Color("action:N", title="Action"),
+            tooltip=[
+                alt.Tooltip("research_symbol:N", title="Symbol"),
+                alt.Tooltip("source:N", title="Source"),
+                alt.Tooltip("action:N", title="Action"),
+                alt.Tooltip("composite:Q", title="Composite", format=",.2f"),
+                alt.Tooltip("risk_flags:N", title="Risk flags"),
+            ],
+        )
+        .properties(height=max(220, 34 * len(frame))),
+        width="stretch",
+    )
+
+
+def render_component_heatmap(frame: pd.DataFrame) -> None:
+    """Render component score heatmap."""
+
+    if frame.empty:
+        st.info("No component scores are available.")
+        return
+    heatmap = frame.melt(
+        id_vars=["research_symbol"],
+        value_vars=["fundamental", "technical", "sentiment", "catalysts"],
+        var_name="component",
+        value_name="score",
+    )
+    st.altair_chart(
+        alt.Chart(heatmap)
+        .mark_rect()
+        .encode(
+            x=alt.X("component:N", title=None),
+            y=alt.Y("research_symbol:N", title=None),
+            color=alt.Color(
+                "score:Q",
+                title="Score",
+                scale=alt.Scale(scheme="redblue", domain=[-1, 1]),
+            ),
+            tooltip=[
+                alt.Tooltip("research_symbol:N", title="Symbol"),
+                alt.Tooltip("component:N", title="Component"),
+                alt.Tooltip("score:Q", title="Score", format=",.2f"),
+            ],
+        )
+        .properties(height=max(220, 30 * frame["research_symbol"].nunique())),
+        width="stretch",
+    )
+
+
+def recommendation_evidence_frame(response: RecommendationsResponse) -> pd.DataFrame:
+    """Flatten raw evidence used by recommendation scores."""
+
+    rows: list[dict[str, Any]] = []
+    for item in response.recommendations:
+        payload = item.model_dump(mode="json")
+        candidate = payload["candidate"]
+        valuation = payload["valuation"]
+        technicals = payload["technicals"]
+        rows.append(
+            {
+                "research_symbol": candidate["research_symbol"],
+                "source": candidate["source"],
+                "action": payload["action"],
+                "trailing_pe": valuation.get("trailing_pe"),
+                "forward_pe": valuation.get("forward_pe"),
+                "price_to_book": valuation.get("price_to_book"),
+                "dividend_yield": valuation.get("dividend_yield"),
+                "beta": valuation.get("beta"),
+                "sma50": technicals.get("sma50"),
+                "sma200": technicals.get("sma200"),
+                "rsi14": technicals.get("rsi14"),
+                "momentum_1m": technicals.get("momentum_1m"),
+                "momentum_3m": technicals.get("momentum_3m"),
+                "momentum_6m": technicals.get("momentum_6m"),
+                "momentum_12m": technicals.get("momentum_12m"),
+                "events": len(payload.get("upcoming_events") or []),
+                "news_items": len(payload.get("news") or []),
+                "sentiment": (payload.get("sentiment") or {}).get("label"),
+                "sentiment_score": (payload.get("sentiment") or {}).get("score"),
+                "warnings": "; ".join(payload.get("warnings") or []),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def render_recommendation_evidence_table(frame: pd.DataFrame) -> None:
+    """Render raw valuation, technical, sentiment, and catalyst evidence."""
+
+    if frame.empty:
+        st.info("No recommendation evidence is available.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "research_symbol": st.column_config.TextColumn("Research symbol"),
+            "source": st.column_config.TextColumn("Source"),
+            "action": st.column_config.TextColumn("Action"),
+            "trailing_pe": st.column_config.NumberColumn("Trailing P/E", format="%.2f"),
+            "forward_pe": st.column_config.NumberColumn("Forward P/E", format="%.2f"),
+            "price_to_book": st.column_config.NumberColumn("P/B", format="%.2f"),
+            "dividend_yield": st.column_config.NumberColumn("Dividend yield", format="%.2%"),
+            "beta": st.column_config.NumberColumn("Beta", format="%.2f"),
+            "sma50": st.column_config.NumberColumn("SMA50", format="%.2f"),
+            "sma200": st.column_config.NumberColumn("SMA200", format="%.2f"),
+            "rsi14": st.column_config.NumberColumn("RSI14", format="%.1f"),
+            "momentum_1m": st.column_config.NumberColumn("1m momentum", format="%.2%"),
+            "momentum_3m": st.column_config.NumberColumn("3m momentum", format="%.2%"),
+            "momentum_6m": st.column_config.NumberColumn("6m momentum", format="%.2%"),
+            "momentum_12m": st.column_config.NumberColumn("12m momentum", format="%.2%"),
+            "events": st.column_config.NumberColumn("Events", format="%d"),
+            "news_items": st.column_config.NumberColumn("News", format="%d"),
+            "sentiment": st.column_config.TextColumn("Sentiment"),
+            "sentiment_score": st.column_config.NumberColumn("Sentiment score", format="%.2f"),
+            "warnings": st.column_config.TextColumn("Warnings"),
+        },
+    )
+
+
+def render_recommendation_table(frame: pd.DataFrame) -> None:
+    """Render recommendations as a review queue."""
+
+    if frame.empty:
+        st.info("No recommendations are available.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "symbol": st.column_config.TextColumn("Broker symbol"),
+            "research_symbol": st.column_config.TextColumn("Research symbol"),
+            "source": st.column_config.TextColumn("Source"),
+            "name": st.column_config.TextColumn("Name"),
+            "action": st.column_config.TextColumn("Review action"),
+            "composite": st.column_config.NumberColumn("Composite", format="%.2f"),
+            "fundamental": st.column_config.NumberColumn("Fundamental", format="%.2f"),
+            "technical": st.column_config.NumberColumn("Technical", format="%.2f"),
+            "sentiment": st.column_config.NumberColumn("Sentiment/news", format="%.2f"),
+            "catalysts": st.column_config.NumberColumn("Catalysts", format="%.2f"),
+            "risk_flags": st.column_config.TextColumn("Risk flags"),
+            "rationale": st.column_config.TextColumn("Deterministic rationale"),
+            "llm_enabled": st.column_config.CheckboxColumn("LLM"),
+            "llm_headline": st.column_config.TextColumn("LLM headline"),
+            "warnings": st.column_config.TextColumn("Warnings"),
+        },
+    )
+
+
+def consolidated_recommendation_frame(
+    response: RecommendationsResponse,
+    handoff: RecommendationHandoffResponse,
+    instrument_validation: InstrumentValidationResponse,
+) -> pd.DataFrame:
+    """Return the MVP recommendation queue with evidence and gate status in one table."""
+
+    base = recommendation_frame(response)
+    evidence = recommendation_evidence_frame(response)
+    handoff_rows = handoff_frame(handoff)
+    instrument_rows = instrument_validation_frame(instrument_validation)
+    if base.empty:
+        return base
+    merged = base.merge(
+        evidence.drop(columns=["source", "action", "warnings"], errors="ignore"),
+        on="research_symbol",
+        how="left",
+    )
+    merged = merged.merge(
+        handoff_rows[
+            [
+                "research_symbol",
+                "preview_action",
+                "handoff_status",
+                "broker_ticker",
+                "research_review_status",
+                "eligible_for_preview",
+                "blockers",
+                "next_step",
+            ]
+        ],
+        on="research_symbol",
+        how="left",
+    )
+    merged = merged.merge(
+        instrument_rows[["research_symbol", "status", "isin", "currency", "asset_type"]],
+        on="research_symbol",
+        how="left",
+    )
+    merged = merged.rename(
+        columns={
+            "status": "broker_validation",
+            "blockers": "preview_blockers",
+            "eligible_for_preview": "preview_eligible",
+        }
+    )
+    columns = [
+        "research_symbol",
+        "name",
+        "source",
+        "action",
+        "composite",
+        "fundamental",
+        "technical",
+        "sentiment",
+        "catalysts",
+        "broker_validation",
+        "broker_ticker",
+        "research_review_status",
+        "preview_eligible",
+        "preview_blockers",
+        "next_step",
+        "trailing_pe",
+        "forward_pe",
+        "price_to_book",
+        "dividend_yield",
+        "rsi14",
+        "momentum_12m",
+        "warnings",
+        "rationale",
+    ]
+    return merged[[column for column in columns if column in merged.columns]]
+
+
+def render_consolidated_recommendation_table(frame: pd.DataFrame) -> None:
+    """Render the single MVP recommendation queue."""
+
+    if frame.empty:
+        st.info("No recommendation rows are available.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "research_symbol": st.column_config.TextColumn("Symbol"),
+            "name": st.column_config.TextColumn("Name"),
+            "source": st.column_config.TextColumn("Source"),
+            "action": st.column_config.TextColumn("Action"),
+            "composite": st.column_config.NumberColumn("Composite", format="%.2f"),
+            "fundamental": st.column_config.NumberColumn("Fundamental", format="%.2f"),
+            "technical": st.column_config.NumberColumn("Technical", format="%.2f"),
+            "sentiment": st.column_config.NumberColumn("Sentiment", format="%.2f"),
+            "catalysts": st.column_config.NumberColumn("Catalysts", format="%.2f"),
+            "broker_validation": st.column_config.TextColumn("Broker check"),
+            "broker_ticker": st.column_config.TextColumn("T212 ticker"),
+            "research_review_status": st.column_config.TextColumn("Research gate"),
+            "preview_eligible": st.column_config.CheckboxColumn("Preview"),
+            "preview_blockers": st.column_config.TextColumn("Blockers"),
+            "next_step": st.column_config.TextColumn("Next action"),
+            "trailing_pe": st.column_config.NumberColumn("P/E", format="%.2f"),
+            "forward_pe": st.column_config.NumberColumn("Fwd P/E", format="%.2f"),
+            "price_to_book": st.column_config.NumberColumn("P/B", format="%.2f"),
+            "dividend_yield": st.column_config.NumberColumn("Yield", format="%.2%"),
+            "rsi14": st.column_config.NumberColumn("RSI14", format="%.1f"),
+            "momentum_12m": st.column_config.NumberColumn("12m mom.", format="%.2%"),
+            "warnings": st.column_config.TextColumn("Warnings"),
+            "rationale": st.column_config.TextColumn("Rationale"),
+        },
+    )
+
+
+def handoff_frame(response: RecommendationHandoffResponse) -> pd.DataFrame:
+    """Flatten recommendation hand-off rows for dashboard display."""
+
+    rows: list[dict[str, Any]] = []
+    for item in response.rows:
+        payload = item.model_dump(mode="json")
+        rows.append(
+            {
+                "symbol": payload["symbol"],
+                "research_symbol": payload["research_symbol"],
+                "source": payload["source"],
+                "recommendation_action": payload["recommendation_action"],
+                "preview_action": payload["proposed_preview_action"],
+                "handoff_status": payload["handoff_status"],
+                "composite_score": payload["composite_score"],
+                "instrument_validation_status": payload.get("instrument_validation_status"),
+                "broker_ticker": payload.get("broker_ticker"),
+                "deep_research_required": payload.get("deep_research_required"),
+                "research_review_status": payload.get("research_review_status"),
+                "research_review_id": payload.get("research_review_id"),
+                "eligible_for_preview": payload.get("eligible_for_preview"),
+                "reason": payload["reason"],
+                "blockers": ", ".join(payload.get("blockers") or []),
+                "next_step": payload["next_step"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def render_handoff_summary(response: RecommendationHandoffResponse, frame: pd.DataFrame) -> None:
+    """Render hand-off readiness metrics and warnings."""
+
+    broker_matched = (
+        int((frame["instrument_validation_status"] == "BROKER_MATCHED").sum())
+        if not frame.empty and "instrument_validation_status" in frame
+        else 0
+    )
+    cols = st.columns(5)
+    cols[0].metric("Preview eligible", str(response.eligible_count))
+    cols[1].metric("Needs validation", str(response.review_required_count))
+    cols[2].metric("Blocked", str(response.blocked_count))
+    cols[3].metric("Broker matched", str(broker_matched))
+    cols[4].metric("Rows", str(len(frame)))
+    generated = to_london(response.generated_at_utc)
+    st.caption(
+        f"Hand-off generated from {response.provider} at "
+        f"{generated:%Y-%m-%d %H:%M:%S %Z}. It is still preview-only."
+    )
+
+
+def render_handoff_chart(frame: pd.DataFrame) -> None:
+    """Render hand-off readiness by recommendation symbol."""
+
+    if frame.empty:
+        st.info("No hand-off rows are available.")
+        return
+    st.altair_chart(
+        alt.Chart(frame)
+        .mark_bar(size=28)
+        .encode(
+            x=alt.X(
+                "composite_score:Q",
+                title="Composite score",
+                scale=alt.Scale(domain=[-1, 1]),
+            ),
+            y=alt.Y("research_symbol:N", sort="-x", title=None),
+            color=alt.Color("handoff_status:N", title="Hand-off status"),
+            tooltip=[
+                alt.Tooltip("research_symbol:N", title="Symbol"),
+                alt.Tooltip("recommendation_action:N", title="Recommendation"),
+                alt.Tooltip("preview_action:N", title="Preview action"),
+                alt.Tooltip("handoff_status:N", title="Status"),
+                alt.Tooltip("instrument_validation_status:N", title="Broker validation"),
+                alt.Tooltip("broker_ticker:N", title="Broker ticker"),
+                alt.Tooltip("blockers:N", title="Blockers"),
+            ],
+        )
+        .properties(height=max(220, 34 * len(frame))),
+        width="stretch",
+    )
+
+
+def render_handoff_table(frame: pd.DataFrame) -> None:
+    """Render review hand-off rows."""
+
+    if frame.empty:
+        st.info("No hand-off rows are available.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "symbol": st.column_config.TextColumn("Broker symbol"),
+            "research_symbol": st.column_config.TextColumn("Research symbol"),
+            "source": st.column_config.TextColumn("Source"),
+            "recommendation_action": st.column_config.TextColumn("Recommendation"),
+            "preview_action": st.column_config.TextColumn("Preview action"),
+            "handoff_status": st.column_config.TextColumn("Hand-off status"),
+            "composite_score": st.column_config.NumberColumn("Composite", format="%.2f"),
+            "instrument_validation_status": st.column_config.TextColumn("Broker validation"),
+            "broker_ticker": st.column_config.TextColumn("Broker ticker"),
+            "deep_research_required": st.column_config.CheckboxColumn("Deep research"),
+            "research_review_status": st.column_config.TextColumn("Research status"),
+            "research_review_id": st.column_config.TextColumn("Research review"),
+            "eligible_for_preview": st.column_config.CheckboxColumn("Preview eligible"),
+            "reason": st.column_config.TextColumn("Reason"),
+            "blockers": st.column_config.TextColumn("Blockers"),
+            "next_step": st.column_config.TextColumn("Next step"),
+        },
+    )
+
+
+def instrument_validation_frame(response: InstrumentValidationResponse) -> pd.DataFrame:
+    """Flatten instrument validation rows for dashboard display."""
+
+    rows: list[dict[str, Any]] = []
+    for item in response.rows:
+        payload = item.model_dump(mode="json")
+        rows.append(
+            {
+                "research_symbol": payload["research_symbol"],
+                "source": payload["source"],
+                "status": payload["status"],
+                "broker_ticker": payload.get("broker_ticker"),
+                "name": payload.get("name"),
+                "isin": payload.get("isin"),
+                "currency": payload.get("currency"),
+                "asset_type": payload.get("asset_type"),
+                "candidate_broker_tickers": ", ".join(
+                    payload.get("candidate_broker_tickers") or []
+                ),
+                "isa_eligibility": payload["isa_eligibility"],
+                "reason": payload["reason"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def render_instrument_validation_summary(
+    response: InstrumentValidationResponse, frame: pd.DataFrame
+) -> None:
+    """Render broker metadata validation metrics."""
+
+    counts = frame["status"].value_counts().to_dict() if not frame.empty else {}
+    cols = st.columns(4)
+    cols[0].metric("Broker matched", str(counts.get("BROKER_MATCHED", 0)))
+    cols[1].metric("Holdings confirmed", str(counts.get("HOLDING_CONFIRMED", 0)))
+    cols[2].metric("Needs mapping", str(counts.get("NEEDS_MAPPING", 0)))
+    cols[3].metric("Metadata rows", str(response.instrument_count))
+    retrieved = to_london(response.retrieved_at_utc)
+    st.caption(
+        f"Trading 212 metadata validation at {retrieved:%Y-%m-%d %H:%M:%S %Z}. "
+        "A broker match is not an order approval."
+    )
+    for warning in response.warnings:
+        st.warning(warning)
+
+
+def render_instrument_validation_table(frame: pd.DataFrame) -> None:
+    """Render Trading 212 instrument validation results."""
+
+    if frame.empty:
+        st.info("No instrument validation rows are available.")
+        return
+    st.dataframe(
+        frame,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "research_symbol": st.column_config.TextColumn("Research symbol"),
+            "source": st.column_config.TextColumn("Source"),
+            "status": st.column_config.TextColumn("Broker validation"),
+            "broker_ticker": st.column_config.TextColumn("Broker ticker"),
+            "name": st.column_config.TextColumn("Name"),
+            "isin": st.column_config.TextColumn("ISIN"),
+            "currency": st.column_config.TextColumn("Currency"),
+            "asset_type": st.column_config.TextColumn("Type"),
+            "candidate_broker_tickers": st.column_config.TextColumn("Candidate tickers"),
+            "isa_eligibility": st.column_config.TextColumn("ISA state"),
+            "reason": st.column_config.TextColumn("Reason"),
+        },
+    )
+
+
+def _score(scores: dict[str, Any], key: str) -> float | None:
+    """Return a nested component score."""
+
+    component = scores.get(key) or {}
+    value = component.get("score")
+    return float(value) if value is not None else None

@@ -26,3 +26,7 @@ client_secret = "PLACEHOLDER"
 [x]
 enabled = false
 bearer_token = "PLACEHOLDER"
+
+[openai]
+api_key = "PLACEHOLDER"
+model = "gpt-4o-mini"

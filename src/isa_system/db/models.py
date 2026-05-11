@@ -220,3 +220,24 @@ class UniverseSnapshot(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     snapshot_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class ResearchReview(Base):
+    """Persisted deep research gate result for one recommendation candidate."""
+
+    __tablename__ = "research_reviews"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    research_symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    broker_ticker: Mapped[str | None] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    decision: Mapped[str | None] = mapped_column(String(40))
+    final_score: Mapped[int | None] = mapped_column(Integer)
+    model: Mapped[str] = mapped_column(String(120), nullable=False)
+    evidence_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    generated_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    request_json: Mapped[str] = mapped_column(Text, nullable=False)
+    response_json: Mapped[str] = mapped_column(Text, nullable=False)
+    warnings_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)

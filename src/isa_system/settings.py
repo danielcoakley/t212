@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     """Runtime settings with safe local defaults."""
 
     model_config = SettingsConfigDict(
-        env_file=(".env.local", ".env"),
+        env_file=("env.local", ".env.local", ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
@@ -81,6 +81,8 @@ class Settings(BaseSettings):
         default=None, validation_alias="REDDIT_CLIENT_SECRET"
     )
     x_bearer_token: SecretStr | None = Field(default=None, validation_alias="X_BEARER_TOKEN")
+    openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
+    openai_model: str = Field(default="gpt-4o-mini", validation_alias="OPENAI_MODEL")
 
 
 @lru_cache
@@ -88,3 +90,9 @@ def get_settings() -> Settings:
     """Return cached settings."""
 
     return Settings()
+
+
+def clear_settings_cache() -> None:
+    """Clear cached settings after env-file changes in long-running apps."""
+
+    get_settings.cache_clear()

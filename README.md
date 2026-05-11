@@ -33,9 +33,14 @@ streamlit run src/isa_system/dashboard/app.py
 
 ## Configuration
 
-Copy `.env.example` to `.env.local` and fill only the keys you intend to
-use. The smoke test, tests, API, and dashboard run without external API
-keys. Services bind to `127.0.0.1` by default.
+Copy `.env.example` to `env.local` or `.env.local` and fill only the keys
+you intend to use. The smoke test, tests, API, and dashboard run without
+external API keys. Services bind to `127.0.0.1` by default.
+
+The dashboard can display Trading 212 account summary and positions using
+read-only GET endpoints when `TRADING212_API_KEY`,
+`TRADING212_API_SECRET`, and `TRADING212_ENVIRONMENT=live` are available.
+This does not arm or submit live orders.
 
 Config examples live under `configs/`. Real broker-specific identifiers,
 account values, and secrets must stay outside tracked files.

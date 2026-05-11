@@ -84,6 +84,7 @@ class Trading212Position(BaseModel):
     average_price_paid: float | None = Field(default=None, alias="averagePricePaid")
     current_price: float | None = Field(default=None, alias="currentPrice")
     instrument: dict[str, Any] | None = None
+    wallet_impact: dict[str, Any] | None = Field(default=None, alias="walletImpact")
 
 
 class Trading212OrderResponse(BaseModel):

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from isa_system.db.crud import append_audit_log
+from isa_system.db.models import ResearchReview
 from isa_system.db.session import init_db, make_engine, make_session_factory
 
 
@@ -18,3 +21,33 @@ def test_sqlite_operational_db_can_be_created() -> None:
         )
         session.commit()
         assert row.id is not None
+
+
+def test_sqlite_operational_db_can_persist_research_reviews() -> None:
+    """Research review table exists in the default SQLite schema."""
+
+    engine = make_engine("sqlite:///:memory:")
+    init_db(engine)
+    factory = make_session_factory(engine)
+    generated = datetime(2026, 5, 10, tzinfo=UTC)
+    with factory() as session:
+        session.add(
+            ResearchReview(
+                id="research-test",
+                symbol="GOOD.L",
+                research_symbol="GOOD.L",
+                broker_ticker="GOODl_EQ",
+                status="AVAILABLE",
+                decision="RESEARCH_PASSED",
+                final_score=80,
+                model="test-model",
+                evidence_hash="hash",
+                generated_at_utc=generated,
+                expires_at_utc=generated + timedelta(days=7),
+                request_json="{}",
+                response_json="{}",
+                warnings_json="[]",
+            )
+        )
+        session.commit()
+        assert session.get(ResearchReview, "research-test") is not None

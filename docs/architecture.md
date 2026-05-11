@@ -17,6 +17,8 @@ flowchart TD
         PIT["Point-in-time joins"]
         FACTORS["Quality, value, momentum, dividend factors"]
         RANK["Ranking and hard filters"]
+        RECS["Recommendation queue and broker-universe screener"]
+        RESEARCH["Deep research gate"]
         RISK["Constraints, costs, SDRT, vetoes"]
     end
     subgraph Control["Execution and Control Plane"]
@@ -37,7 +39,7 @@ flowchart TD
     UK --> LAKE
     MACRO --> LAKE
     LAKE --> PIT
-    PIT --> FACTORS --> RANK --> RISK --> PREVIEW
+    PIT --> FACTORS --> RANK --> RECS --> RESEARCH --> RISK --> PREVIEW
     PREVIEW --> IDEM
     IDEM --> PAPER
     IDEM --> LIVE
@@ -71,4 +73,21 @@ sequenceDiagram
     API->>Broker: Submit only when live armed and kill switch clear
     Broker-->>API: Broker order ids or safe error
     API->>Operator: Outcome and audit reference
+```
+
+## Recommendation and Research Gate Flow
+
+```mermaid
+flowchart TD
+    T212META["Trading 212 instrument metadata"] --> UNIVERSE["Filtered broker universe"]
+    YAML["YAML universe fallback"] --> UNIVERSE
+    HOLDINGS["Current holdings"] --> RECS["Consolidated recommendation queue"]
+    UNIVERSE --> RECS
+    EVIDENCE["Valuation, technical, catalyst, sentiment evidence"] --> RECS
+    RECS --> HANDOFF["Recommendation hand-off"]
+    HANDOFF -->|SELL or TRIM| PREVIEW["Preview-only sizing"]
+    HANDOFF -->|BUY or ADD| GATE["OpenAI deep research gate"]
+    GATE -->|REJECT or WATCH or unavailable| BLOCKED["Blocked from preview"]
+    GATE -->|RESEARCH_PASSED and not expired| PREVIEW
+    PREVIEW --> AUDIT["Audit and review artefacts"]
 ```
