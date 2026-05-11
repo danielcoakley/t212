@@ -14,6 +14,7 @@ from isa_system.dashboard.data import (
 )
 from isa_system.dashboard.pages import (
     advanced,
+    management,
     overview,
     preview,
     recommendations,
@@ -47,7 +48,15 @@ def main() -> None:
         st.title("ISA System")
         page = st.radio(
             "Workflow",
-            ["Overview", "Screener", "Recommendations", "Deep Research", "Preview", "Advanced"],
+            [
+                "Overview",
+                "Screener",
+                "Recommendations",
+                "Deep Research",
+                "Preview",
+                "Management",
+                "Advanced",
+            ],
             index=0,
         )
         st.divider()
@@ -119,6 +128,8 @@ def main() -> None:
             include_defaults=include_defaults,
             include_llm=include_llm,
         )
+    elif page == "Management":
+        management.render(snapshot)
     else:
         advanced.render(snapshot)
 

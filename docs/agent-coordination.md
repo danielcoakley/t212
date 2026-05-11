@@ -12,8 +12,8 @@ management visibility come before any deeper live execution work.
 
 | Workstream | Owner | Branch/worktree name | Status |
 | --- | --- | --- | --- |
-| Documentation and coordination | Current orchestrator | `codex/mvp-roadmap-orchestration` | In progress |
-| Management console / admin area | Unassigned | `codex/management-console-skeleton` | Next |
+| Documentation and coordination | Current orchestrator | `codex/mvp-roadmap-orchestration` | Completed baseline |
+| Management console / admin area | Current orchestrator | `codex/mvp-roadmap-orchestration` | Completed first slice |
 | UI/UX consistency and simplification | Unassigned | `codex/ui-cockpit-simplification` | Pending |
 | Local onboarding and pilot setup | Unassigned | `codex/local-onboarding` | Pending |
 | Pilot customer workflow | Unassigned | `codex/pilot-workflow` | Pending |
@@ -118,3 +118,34 @@ Tests run: Pending.
 Integration concerns: Management page work should avoid changing live execution
 semantics. Keep it read-only in the first slice.
 
+### 2026-05-11 - Orchestrator Management Slice
+
+What changed: Added a read-only Streamlit Management page to surface runtime
+mode, live arming, kill switch, broker status, cache window, provider
+configuration, and safety checklist. Updated dashboard layout docs to include
+Management as a front-stage MVP page. Also fixed zero-config SQLite setup so
+file-backed SQLite tests and first-run operation create the missing parent
+directory automatically.
+
+What remains: Persist paper cycles, add richer provider freshness diagnostics,
+and decide whether a future API management status endpoint is needed.
+
+Files touched:
+
+- `src/isa_system/dashboard/app.py`
+- `src/isa_system/dashboard/pages/management.py`
+- `src/isa_system/db/session.py`
+- `tests/unit/test_dashboard_management.py`
+- `tests/unit/test_db.py`
+- `docs/dashboard_layout.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q`
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+- Browser rendered smoke: `http://127.0.0.1:8501` loaded, Management selected, provider configuration and safety checklist visible.
+
+Integration concerns: The Management page reads local settings and broker
+snapshot state only. It does not call mode mutation endpoints or submit orders.
