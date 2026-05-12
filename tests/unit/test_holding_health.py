@@ -74,7 +74,30 @@ def test_holding_health_report_uses_configured_openai_model(tmp_path: Path) -> N
             json={
                 "output_text": json.dumps(
                     {
+                        "portfolioHealthScore": 77,
                         "summary": "Good Inc remains attractive but needs review.",
+                        "keyFindings": ["Position size is modest."],
+                        "riskScores": {
+                            "concentration": 20,
+                            "valuation": 35,
+                            "balanceSheet": 30,
+                            "earningsQuality": 25,
+                            "dividend": 15,
+                            "macro": 40,
+                        },
+                        "holdingsToReview": [
+                            {
+                                "ticker": "GOOD_US_EQ",
+                                "companyName": "Good Inc",
+                                "reason": "Review valuation after latest data.",
+                                "riskLevel": "medium",
+                                "suggestedAction": "Hold",
+                                "confidence": "medium",
+                            }
+                        ],
+                        "portfolioActions": ["Keep monitoring valuation."],
+                        "missingData": [],
+                        "disclaimer": "Research only, not advice.",
                         "portfolio_level_notes": ["Position size is modest."],
                         "warnings": ["Verify sources before action."],
                         "assessments": [
@@ -106,12 +129,60 @@ def test_holding_health_report_uses_configured_openai_model(tmp_path: Path) -> N
     )
 
     assert report.status == HoldingHealthReportStatus.AVAILABLE
+    assert report.model == "test-health-model"
+    assert report.reasoning_effort == "medium"
+    assert report.used_deep_research is False
+    assert report.portfolio_health_score == 77
+    assert report.risk_scores.valuation == 35
+    assert report.holdings_to_review[0].suggested_action == "Hold"
     assessment = report.assessments[0]
     assert assessment.recommended_action == HoldingHealthAction.BUY_MORE
     assert assessment.price_targets.bear == 42.0
     assert assessment.price_targets.base == 62.0
     assert assessment.price_targets.bull == 81.0
     assert assessment.confidence_score == 74
+
+
+def test_detailed_holding_health_uses_high_reasoning(tmp_path: Path) -> None:
+    """Detailed health checks keep the health model but increase reasoning effort."""
+
+    settings = _settings(tmp_path, openai_api_key=SecretStr("test-key"))
+    snapshot = _snapshot()
+    valuation = _valuation(snapshot)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        assert payload["model"] == "gpt-5.5"
+        assert payload["reasoning"] == {"effort": "high"}
+        return httpx.Response(
+            200,
+            json={
+                "output_text": json.dumps(
+                    {
+                        "portfolioHealthScore": 70,
+                        "summary": "Detailed review complete.",
+                        "keyFindings": [],
+                        "riskScores": {},
+                        "holdingsToReview": [],
+                        "portfolioActions": [],
+                        "missingData": [],
+                        "disclaimer": "Research only.",
+                        "warnings": [],
+                        "assessments": [],
+                    }
+                )
+            },
+        )
+
+    report = run_holding_health_report(
+        snapshot,
+        valuation,
+        settings=settings,
+        transport=httpx.MockTransport(handler),
+        detailed=True,
+    )
+
+    assert report.reasoning_effort == "high"
 
 
 def test_accepting_adjusted_health_targets_is_persisted(tmp_path: Path) -> None:
