@@ -51,3 +51,15 @@ def test_portfolio_summary_endpoint_is_read_only(monkeypatch: pytest.MonkeyPatch
         {"currency": "GBP", "current_value": 1_000.0, "weight": 0.4}
     ]
     assert payload["top_positions"][0]["symbol"] == "SHEL.L"
+
+
+def test_deep_valuation_endpoint_rejects_empty_selection() -> None:
+    """The API does not run selected-stock valuation without selected symbols."""
+
+    response = TestClient(app).post(
+        "/portfolio/deep-valuation",
+        json={"symbols": [], "maximum_depth": False, "source_heavy": False},
+    )
+
+    assert response.status_code == 400
+    assert "Select at least one stock" in response.json()["detail"]

@@ -18,6 +18,7 @@ def test_command_centre_root_serves_workflow_dashboard() -> None:
 
     assert response.status_code == 200
     assert "Workflow Command Center" in response.text
+    assert 'data-page="portfolio">Portfolio</a>' in response.text
     assert 'data-page="screener">Screener</a>' in response.text
     assert "Finviz Screener" not in response.text
     assert "Discovery workbench" not in response.text
@@ -29,6 +30,8 @@ def test_command_centre_root_serves_workflow_dashboard() -> None:
     assert 'data-page="screener"' in response.text
     assert 'data-page="research"' not in response.text
     assert "Holdings health report" in response.text
+    assert "Deep Valuation" in response.text
+    assert "Source-heavy Research Pack" in response.text
     assert "Live trading not implemented" in response.text
 
 
@@ -41,6 +44,8 @@ def test_dashboard_assets_are_served() -> None:
     js_response = client.get("/dashboard-assets/app.js")
     assert js_response.status_code == 200
     assert "/health-check/run" in js_response.text
+    assert "/portfolio/deep-valuation" in js_response.text
+    assert "Select at least one stock before running deep valuation." in js_response.text
     assert "/discovery/finviz/screener" in js_response.text
     assert "sort-screener" in js_response.text
     assert "add-custom-column" in js_response.text
