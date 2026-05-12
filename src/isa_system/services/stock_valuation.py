@@ -199,7 +199,7 @@ def run_selected_stock_valuations(
         settings=app_settings,
         explicit_source_research=source_heavy,
     )
-    warnings = list(source_config.notes)
+    warnings = list(source_config.notes) if source_heavy else []
     results: list[SelectedStockValuation] = []
     for symbol in requested_symbols:
         evidence = _stock_evidence(symbol, broker_snapshot, holdings_valuation)
