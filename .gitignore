@@ -33,3 +33,4 @@ apps/web/.vite/
 .idea/
 .vscode/
 .DS_Store
+vendor/OpenBB/
