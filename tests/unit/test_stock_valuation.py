@@ -12,7 +12,11 @@ from pydantic import SecretStr
 
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot, BrokerPosition
 from isa_system.services.stock_valuation import run_selected_stock_valuations
-from isa_system.services.valuation import HoldingsValuationResponse, HoldingValuation, ValuationMetrics
+from isa_system.services.valuation import (
+    HoldingsValuationResponse,
+    HoldingValuation,
+    ValuationMetrics,
+)
 from isa_system.settings import Settings
 
 

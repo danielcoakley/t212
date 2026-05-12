@@ -32,6 +32,11 @@ def portfolio_summary() -> PortfolioAnalyticsSummary:
 def portfolio_deep_valuation(request: DeepValuationRunRequest) -> DeepValuationRun:
     """Run GPT valuation for explicitly selected stocks only."""
 
+    if not [symbol for symbol in request.symbols if str(symbol).strip()]:
+        raise HTTPException(
+            status_code=400,
+            detail="Select at least one stock before running deep valuation.",
+        )
     settings = get_settings()
     snapshot = load_trading212_portfolio(force_refresh=True)
     valuation = value_current_holdings(snapshot)
