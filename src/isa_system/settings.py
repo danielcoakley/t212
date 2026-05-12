@@ -8,7 +8,14 @@ from pathlib import Path
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from isa_system.constants import DEFAULT_ARTIFACTS_PATH, DEFAULT_DATA_LAKE_PATH, DEFAULT_SQLITE_DSN
+from isa_system.constants import (
+    DEFAULT_ARTIFACTS_PATH,
+    DEFAULT_DATA_LAKE_PATH,
+    DEFAULT_OPENBB_API_URL,
+    DEFAULT_OPENBB_MCP_URL,
+    DEFAULT_PORTFOLIO_API_PORT,
+    DEFAULT_SQLITE_DSN,
+)
 from isa_system.domain.enums import RuntimeMode
 
 
@@ -26,10 +33,12 @@ class Settings(BaseSettings):
         default="local", validation_alias=AliasChoices("ISA_ENVIRONMENT", "ENVIRONMENT")
     )
     bind_host: str = Field(
-        default="127.0.0.1", validation_alias=AliasChoices("ISA_BIND_HOST", "BIND_HOST")
+        default="127.0.0.1",
+        validation_alias=AliasChoices("PORTFOLIO_API_HOST", "ISA_BIND_HOST", "BIND_HOST"),
     )
     bind_port: int = Field(
-        default=8000, validation_alias=AliasChoices("ISA_BIND_PORT", "BIND_PORT")
+        default=DEFAULT_PORTFOLIO_API_PORT,
+        validation_alias=AliasChoices("PORTFOLIO_API_PORT", "ISA_BIND_PORT", "BIND_PORT"),
     )
     runtime_mode: RuntimeMode = Field(
         default=RuntimeMode.PREVIEW,
@@ -111,7 +120,10 @@ class Settings(BaseSettings):
     )
     openbb_odp_timeout_seconds: float = Field(
         default=3.0,
-        validation_alias=AliasChoices("ISA_OPENBB_ODP_TIMEOUT_SECONDS", "OPENBB_ODP_TIMEOUT_SECONDS"),
+        validation_alias=AliasChoices(
+            "ISA_OPENBB_ODP_TIMEOUT_SECONDS",
+            "OPENBB_ODP_TIMEOUT_SECONDS",
+        ),
     )
 
     trading212_api_key: SecretStr | None = Field(
@@ -121,8 +133,17 @@ class Settings(BaseSettings):
         default=None, validation_alias=AliasChoices("TRADING212_API_SECRET", "T212_API_SECRET")
     )
     trading212_environment: str = Field(
-        default="demo", validation_alias=AliasChoices("TRADING212_ENVIRONMENT", "T212_ENVIRONMENT")
+        default="demo",
+        validation_alias=AliasChoices(
+            "TRADING212_MODE", "TRADING212_ENVIRONMENT", "T212_ENVIRONMENT"
+        ),
     )
+    live_trading_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("LIVE_TRADING_ENABLED", "ISA_LIVE_TRADING_ENABLED"),
+    )
+    openbb_api_url: str = Field(default=DEFAULT_OPENBB_API_URL, validation_alias="OPENBB_API_URL")
+    openbb_mcp_url: str = Field(default=DEFAULT_OPENBB_MCP_URL, validation_alias="OPENBB_MCP_URL")
     alpha_vantage_api_key: SecretStr | None = Field(
         default=None, validation_alias="ALPHA_VANTAGE_API_KEY"
     )
@@ -139,6 +160,10 @@ class Settings(BaseSettings):
     x_bearer_token: SecretStr | None = Field(default=None, validation_alias="X_BEARER_TOKEN")
     openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", validation_alias="OPENAI_MODEL")
+    openai_health_model: str = Field(
+        default="o3-deep-research",
+        validation_alias=AliasChoices("OPENAI_HEALTH_MODEL", "OPENAI_DEEP_RESEARCH_MODEL"),
+    )
 
 
 @lru_cache

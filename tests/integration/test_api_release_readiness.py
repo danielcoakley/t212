@@ -69,11 +69,11 @@ def test_paper_cycle_reload_returns_404_for_unknown_cycle(
     assert response.json()["detail"] == "Paper cycle not found."
 
 
-def test_report_and_paper_cycle_routes_leave_live_submit_blocked(
+def test_report_and_paper_cycle_routes_do_not_add_live_submit(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Report generation and paper persistence must not arm or authorize live submit."""
+    """Report generation and paper persistence must not add live submit."""
 
     settings = Settings(_env_file=None, operational_db_dsn=f"sqlite:///{tmp_path / 'ops.db'}")
     monkeypatch.setattr("isa_system.services.paper_persistence.get_settings", lambda: settings)
@@ -99,8 +99,7 @@ def test_report_and_paper_cycle_routes_leave_live_submit_blocked(
         json={"batch_hash": paper_cycle_response.json()["id"], "mode": "live"},
     )
 
-    assert submit_response.status_code == 403
-    assert submit_response.json()["detail"] == "Live trading is not armed."
+    assert submit_response.status_code == 404
 
 
 def _patch_report_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:

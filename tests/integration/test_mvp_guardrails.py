@@ -165,8 +165,8 @@ def test_recommendation_preview_sizes_only_rows_with_research_pass(
     assert "DEEP_RESEARCH_REQUIRED" in rows["WAIT.L"]["blockers"]
 
 
-def test_live_submit_remains_blocked_when_mode_is_live_but_unarmed() -> None:
-    """Live mode selection alone is not order authority."""
+def test_live_submit_route_does_not_exist() -> None:
+    """The unified build exposes no live submit endpoint."""
 
     client = TestClient(app)
     mode_response = client.post("/modes/live")
@@ -178,8 +178,7 @@ def test_live_submit_remains_blocked_when_mode_is_live_but_unarmed() -> None:
     assert mode_response.status_code == 200
     assert mode_response.json()["mode"] == "live"
     assert mode_response.json()["live_armed"] == "False"
-    assert submit_response.status_code == 403
-    assert submit_response.json()["detail"] == "Live trading is not armed."
+    assert submit_response.status_code == 404
 
 
 def _snapshot() -> BrokerPortfolioSnapshot:

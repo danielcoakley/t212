@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "isa-system"
+name = "portfolio-intelligence"
 version = "0.1.0"
-description = "Local-first, audit-friendly UK Stocks and Shares ISA trading system starter."
+description = "Local-first, safety-first UK Stocks and Shares ISA portfolio intelligence cockpit."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Local Operator" }]
@@ -55,7 +55,7 @@ isa-system = "isa_system.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-isa_system = ["py.typed"]
+isa_system = ["py.typed", "web/*.html", "web/*.css", "web/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

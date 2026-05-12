@@ -1,0 +1,27 @@
+{
+  "company_profile": [
+    {
+      "symbol": "MSFT",
+      "name": "Microsoft Corporation",
+      "sector": "Technology",
+      "industry": "Software",
+      "country": "United States",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "market_cap": 3000000000000
+    }
+  ],
+  "fundamentals": [
+    {
+      "revenue_growth": 0.14,
+      "eps_growth": 0.18,
+      "gross_margin": 0.69
+    }
+  ],
+  "ratios": [
+    {
+      "pe_ratio": 34.2,
+      "price_to_sales": 12.1
+    }
+  ]
+}

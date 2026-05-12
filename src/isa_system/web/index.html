@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ISA Operator Cockpit</title>
+    <link rel="stylesheet" href="/dashboard-assets/styles.css?v=20260512-screener-cleanup" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Main navigation">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">ISA</div>
+          <div>
+            <h1>ISA Operator Cockpit</h1>
+            <p>UK Stocks &amp; Shares ISA</p>
+          </div>
+        </div>
+        <nav class="nav-list" id="nav-list">
+          <a class="nav-item active" href="#overview" data-page="overview">Overview</a>
+          <a class="nav-item" href="#screener" data-page="screener">Screener</a>
+        </nav>
+        <div class="sidebar-summary">
+          <p class="eyebrow">ISA Summary</p>
+          <div class="summary-row">
+            <span>Total value</span>
+            <strong id="side-total-value">n/a</strong>
+          </div>
+          <div class="summary-row">
+            <span>Cash</span>
+            <strong id="side-cash">n/a</strong>
+          </div>
+          <div class="summary-row">
+            <span>Holdings</span>
+            <strong id="side-holdings">0</strong>
+          </div>
+          <div class="progress-label">
+            <span>Tax year 2024/25</span>
+            <span id="allowance-label">Preview</span>
+          </div>
+          <div class="progress-track" aria-hidden="true">
+            <span id="allowance-bar"></span>
+          </div>
+        </div>
+      </aside>
+
+      <div class="workspace">
+        <header class="topbar">
+          <div class="status-chip strong" id="mode-chip">Preview only</div>
+          <div class="status-cell">
+            <span class="dot" id="broker-dot"></span>
+            <div>
+              <strong id="broker-status">Broker</strong>
+              <small id="broker-detail">Loading</small>
+            </div>
+          </div>
+          <div class="status-cell">
+            <span class="dot" id="openbb-dot"></span>
+            <div>
+              <strong>OpenBB</strong>
+              <small id="openbb-detail">Checking</small>
+            </div>
+          </div>
+          <div class="status-cell">
+            <span class="dot" id="openai-dot"></span>
+            <div>
+              <strong>OpenAI health model</strong>
+              <small id="openai-detail">o3-deep-research</small>
+            </div>
+          </div>
+          <div class="status-cell danger">
+            <span class="warning-icon">!</span>
+            <div>
+              <strong>Live trading not implemented</strong>
+              <small>All actions require manual review</small>
+            </div>
+          </div>
+          <div class="clock">
+            <strong id="clock-time">--:--:--</strong>
+            <small id="clock-date">Europe/London</small>
+          </div>
+        </header>
+
+        <main class="content">
+          <section class="view-section active" id="overview-page" data-view="overview">
+          <section class="hero-section" id="overview">
+            <div>
+              <h2>Workflow Command Center</h2>
+              <p>
+                End-to-end ISA research, holdings health, portfolio review, and
+                preview-only rebalance operations from one local cockpit.
+              </p>
+            </div>
+            <div class="hero-actions">
+              <button class="button ghost" id="refresh-all-button">Refresh all data</button>
+              <button class="button primary" id="run-orchestrator-button">
+                Run full offline pipeline
+              </button>
+            </div>
+          </section>
+
+          <section class="command-grid" id="workflow" aria-label="Workflow stages">
+            <article class="stage-card" data-stage="discovery">
+              <span class="stage-number">1</span>
+              <h3>Run Finviz discovery</h3>
+              <p id="stage-discovery-status">Waiting for latest run</p>
+              <button class="link-button" data-action="run-discovery">Run discovery</button>
+            </article>
+            <article class="stage-card" data-stage="enrichment">
+              <span class="stage-number">2</span>
+              <h3>Enrich with OpenBB</h3>
+              <p id="stage-enrichment-status">No enrichment packet yet</p>
+              <button class="link-button" data-action="run-enrichment">Run enrichment</button>
+            </article>
+            <article class="stage-card" data-stage="scores">
+              <span class="stage-number">3</span>
+              <h3>Score and rank</h3>
+              <p id="stage-scores-status">Top 10 not scored</p>
+              <button class="link-button" data-action="run-scores">Score candidates</button>
+            </article>
+            <article class="stage-card" data-stage="research">
+              <span class="stage-number">4</span>
+              <h3>Research top 10</h3>
+              <p id="stage-research-status">No reports loaded</p>
+              <button class="link-button" data-action="run-research">Run research</button>
+            </article>
+            <article class="stage-card" data-stage="thesis">
+              <span class="stage-number">5</span>
+              <h3>Thesis decisions</h3>
+              <p id="stage-thesis-status">Watchlist pending</p>
+              <button class="link-button" data-action="load-watchlist">Load watchlist</button>
+            </article>
+            <article class="stage-card highlight" data-stage="health">
+              <span class="stage-number">6</span>
+              <h3>Holdings health report</h3>
+              <p id="stage-health-status">No report yet</p>
+              <button class="link-button" data-action="run-health">Run health check</button>
+            </article>
+            <article class="stage-card" data-stage="portfolio">
+              <span class="stage-number">7</span>
+              <h3>Portfolio review</h3>
+              <p id="stage-portfolio-status">Loading holdings</p>
+              <button class="link-button" data-action="portfolio-review">Review portfolio</button>
+            </article>
+            <article class="stage-card" data-stage="rebalance">
+              <span class="stage-number">8</span>
+              <h3>Rebalance preview</h3>
+              <p id="stage-rebalance-status">No proposals</p>
+              <button class="link-button" data-action="rebalance-preview">Build preview</button>
+            </article>
+            <article class="stage-card" data-stage="orders">
+              <span class="stage-number">9</span>
+              <h3>Order preview only</h3>
+              <p id="stage-orders-status">No live submit route</p>
+              <button class="link-button" data-action="orders-preview">Check previews</button>
+            </article>
+          </section>
+
+          <div class="manual-review">
+            Manual review required for pending steps. No broker order is submitted by this app.
+          </div>
+
+          <div class="dashboard-layout">
+            <section class="panel health-panel" id="health-check">
+              <div class="panel-header">
+                <div>
+                  <h3>Current Holdings Health</h3>
+                  <p id="health-subtitle">Run a report to update targets and actions.</p>
+                </div>
+                <button class="button compact" data-action="run-health">Run report</button>
+              </div>
+              <div class="health-summary">
+                <div class="score-ring" id="health-score-ring">
+                  <span id="health-score">--</span>
+                  <small>Health score</small>
+                </div>
+                <div class="factor-list" id="health-factor-list"></div>
+              </div>
+              <div class="table-toolbar">
+                <strong>Accept / Adjust Targets</strong>
+                <span>Review-only carry-forward state</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Ticker</th>
+                      <th>Action</th>
+                      <th>Bear</th>
+                      <th>Base</th>
+                      <th>Bull</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="health-targets-body"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel" id="candidates">
+              <div class="panel-header">
+                <div>
+                  <h3>Top 10 Candidates</h3>
+                  <p>Scored opportunity queue from the latest run.</p>
+                </div>
+                <button class="button compact ghost" data-action="run-scores">Refresh scores</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Ticker</th>
+                      <th>Score</th>
+                      <th>Data</th>
+                      <th>Explanation</th>
+                    </tr>
+                  </thead>
+                  <tbody id="top10-body"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel" id="research">
+              <div class="panel-header">
+                <div>
+                  <h3>Watchlist / Research Queue</h3>
+                  <p>Persisted thesis decisions and reports.</p>
+                </div>
+                <button class="button compact ghost" data-action="run-research">Run top 10</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Ticker</th>
+                      <th>Status</th>
+                      <th>Decision</th>
+                      <th>Conviction</th>
+                    </tr>
+                  </thead>
+                  <tbody id="watchlist-body"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <aside class="right-rail">
+              <section class="panel compact-panel" id="management">
+                <h3>System Status</h3>
+                <div id="system-status-list" class="status-list"></div>
+              </section>
+              <section class="panel compact-panel">
+                <div class="panel-header tight">
+                  <h3>Risk Warnings</h3>
+                  <span class="count-pill" id="risk-count">0</span>
+                </div>
+                <div id="risk-list" class="risk-list"></div>
+              </section>
+              <section class="panel compact-panel">
+                <h3>Workflow Notes</h3>
+                <p id="workflow-notes">
+                  Load data to inspect current blockers, stale sources, and manual review steps.
+                </p>
+                <small id="last-updated">Not updated yet</small>
+              </section>
+            </aside>
+          </div>
+
+          <div class="lower-grid">
+            <section class="panel" id="rebalance">
+              <div class="panel-header">
+                <div>
+                  <h3>Rebalance Proposals</h3>
+                  <p>Manual-review preview proposals only.</p>
+                </div>
+                <button class="button compact ghost" data-action="rebalance-preview">
+                  Build proposals
+                </button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Ticker</th>
+                      <th>Target</th>
+                      <th>Trade value</th>
+                      <th>Confidence</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rebalance-body"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel" id="portfolio">
+              <div class="panel-header">
+                <div>
+                  <h3>Portfolio Snapshot</h3>
+                  <p>Read-only broker context and current holdings.</p>
+                </div>
+                <button class="button compact ghost" data-action="load-broker-holdings">
+                  Load broker holdings
+                </button>
+              </div>
+              <div class="metric-grid">
+                <div class="metric-card">
+                  <span>Total value</span>
+                  <strong id="portfolio-total">n/a</strong>
+                </div>
+                <div class="metric-card">
+                  <span>Invested</span>
+                  <strong id="portfolio-invested">n/a</strong>
+                </div>
+                <div class="metric-card">
+                  <span>Cash</span>
+                  <strong id="portfolio-cash">n/a</strong>
+                </div>
+              </div>
+              <div class="bar-list" id="holdings-bars"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Key Portfolio Metrics</h3>
+                  <p>Concentration and data-quality context.</p>
+                </div>
+              </div>
+              <div class="metric-table" id="portfolio-metrics"></div>
+            </section>
+          </div>
+          </section>
+
+          <section class="view-section" id="screener-page" data-view="screener" hidden>
+            <section class="panel screener-control-panel" id="screener">
+              <div class="panel-header screener-header">
+                <div>
+                  <h3>Presets</h3>
+                  <p>Quick-select built-in or saved discovery settings. Preset changes run automatically.</p>
+                </div>
+                <div class="screener-actions">
+                  <button class="button" data-action="run-custom-screener">Run Live</button>
+                </div>
+              </div>
+
+              <div class="screener-toolbar">
+                <div class="preset-with-link">
+                  <label class="field">
+                    <span>My Presets</span>
+                    <select id="screener-preset-select" class="finviz-select"></select>
+                  </label>
+                  <a
+                    class="icon-link"
+                    id="finviz-url-link"
+                    href="https://finviz.com/screener.ashx?v=121&ft=2"
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Open current screen in Finviz"
+                    aria-label="Open current screen in Finviz"
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="M14 4h6v6" />
+                      <path d="M10 14 20 4" />
+                      <path d="M20 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4" />
+                    </svg>
+                  </a>
+                </div>
+                <label class="field">
+                  <span>Save Custom Preset</span>
+                  <input
+                    id="custom-preset-name-input"
+                    class="finviz-input"
+                    placeholder="Name these settings"
+                    autocomplete="off"
+                  />
+                </label>
+                <button class="button secondary" data-action="save-custom-preset">Save Preset</button>
+              </div>
+
+              <details class="filter-panel finviz-filter-drawer" id="finviz-filter-drawer">
+                <summary>
+                  <span>Filters</span>
+                  <strong id="active-filter-count">0 active</strong>
+                </summary>
+                <div class="finviz-filter-content">
+                  <div class="screener-advanced-grid">
+                    <label class="field">
+                      <span>Default sort</span>
+                      <select id="screener-order-select" class="finviz-select"></select>
+                    </label>
+                    <label class="field">
+                      <span>Direction</span>
+                      <select id="screener-order-direction" class="finviz-select">
+                        <option value="asc">Asc</option>
+                        <option value="desc">Desc</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>Signal</span>
+                      <select id="screener-signal-select" class="finviz-select">
+                        <option value="none">None (all stocks)</option>
+                        <option value="ta_topgainers">Top Gainers</option>
+                        <option value="ta_mostactive">Most Active</option>
+                        <option value="ta_unusualvolume">Unusual Volume</option>
+                        <option value="ta_newhigh">New High</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>Tickers</span>
+                      <input
+                        id="screener-tickers-input"
+                        class="finviz-input"
+                        placeholder="AAPL,MSFT,NVDA"
+                        autocomplete="off"
+                      />
+                    </label>
+                  </div>
+
+                  <div class="finviz-tabs" id="finviz-filter-tabs"></div>
+                  <div class="finviz-filter-grid" id="finviz-filter-controls"></div>
+                  <div class="custom-filter-row">
+                    <label class="field" for="custom-filter-input">
+                      <span>Custom Finviz filter code</span>
+                      <input
+                        id="custom-filter-input"
+                        class="finviz-input"
+                        placeholder="e.g. fa_pe_u30"
+                        autocomplete="off"
+                      />
+                    </label>
+                    <button class="button secondary" data-action="add-custom-filter">Add</button>
+                    <button class="button ghost" data-action="reset-screener-filters">Reset Filters</button>
+                  </div>
+                  <div class="active-filter-list" id="active-filter-list"></div>
+                </div>
+              </details>
+            </section>
+
+            <section class="panel screener-results-panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Results</h3>
+                  <p id="screener-results-summary">No configurable screener run yet.</p>
+                  <small id="screener-warning-label">Cached, operator-triggered, preview-only</small>
+                </div>
+                <details class="column-drawer" id="column-drawer">
+                  <summary>Columns</summary>
+                  <div class="column-drawer-content" id="column-option-list"></div>
+                </details>
+              </div>
+
+              <div class="table-wrap screener-table-wrap">
+                <table id="screener-results-table" class="finviz-results-table">
+                  <thead id="screener-results-head"></thead>
+                  <tbody id="screener-results-body">
+                    <tr>
+                      <td><div class="finviz-empty">Choose a preset or filters, then run the screener.</div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/dashboard-assets/app.js?v=20260512-screener-cleanup" type="module"></script>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: install lint test smoke api dashboard format migrate
+.PHONY: install lint test smoke api dashboard format migrate check-openbb discovery top10 portfolio-review
 
 install:
 	$(PYTHON) -m pip install -U pip
@@ -15,10 +15,10 @@ test:
 	$(PYTHON) -m pytest -q
 
 smoke:
-	$(PYTHON) -m isa_system.smoke_test
+	$(PYTHON) scripts/smoke_test.py
 
 api:
-	$(PYTHON) -m uvicorn isa_system.api.main:app --host 127.0.0.1 --port 8000
+	$(PYTHON) scripts/run_api.py
 
 dashboard:
 	$(PYTHON) -m streamlit run src/isa_system/dashboard/app.py
@@ -29,3 +29,15 @@ format:
 
 migrate:
 	$(PYTHON) -m alembic upgrade head
+
+check-openbb:
+	$(PYTHON) scripts/check_openbb.py
+
+discovery:
+	$(PYTHON) scripts/run_discovery.py
+
+top10:
+	$(PYTHON) scripts/run_top10_research.py
+
+portfolio-review:
+	$(PYTHON) scripts/run_portfolio_review.py

@@ -1,0 +1,4 @@
+api_url: http://127.0.0.1:6900
+mcp_url: http://127.0.0.1:8001
+timeout_seconds: 10
+required: false

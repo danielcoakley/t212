@@ -191,9 +191,7 @@ class IsaOpenBBClient:
             if raw.empty:
                 continue
             source = (
-                f"openbb-odp:{provider}"
-                if self.backend == "odp_rest"
-                else f"openbb:{provider}"
+                f"openbb-odp:{provider}" if self.backend == "odp_rest" else f"openbb:{provider}"
             )
             frames.append(_normalise_price_frame(raw, symbol=symbol, source=source))
         if not frames:

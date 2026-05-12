@@ -1,4 +1,35 @@
-# ISA System Starter
+# ISA Portfolio Intelligence
+
+This is one local-first, safety-first UK Stocks and Shares ISA portfolio
+intelligence system. The existing `isa_system` package is the implementation
+home for the Finviz discovery, OpenBB enrichment, thesis tracking, portfolio
+comparison, and Trading 212 read-only/order-preview workflow.
+
+It is not a day-trading bot, it is not investment advice, and it does not
+implement live Trading 212 order submission.
+
+Startup order:
+
+1. Optionally start OpenBB API on `http://127.0.0.1:6900`.
+2. Optionally start OpenBB MCP on `http://127.0.0.1:8001`.
+3. Start this API on `http://127.0.0.1:8002` with `python scripts/run_api.py`.
+4. Check local health with `Invoke-RestMethod http://127.0.0.1:8002/health`.
+
+Local port map:
+
+| Service | URL |
+| --- | --- |
+| OpenBB API | `http://127.0.0.1:6900` |
+| OpenBB MCP | `http://127.0.0.1:8001` |
+| ISA Portfolio Intelligence API | `http://127.0.0.1:8002` |
+
+Safety notes:
+
+- Live Trading 212 order submission is not implemented.
+- Trading 212 support is read-only plus order preview only.
+- Order previews require manual review and approval outside this app.
+- Tests and smoke scripts run without real API keys.
+- Keep `.env.local` local and never commit secrets.
 
 A local-first, Codex-assisted starter repository for a long-only,
 buy-and-hold or multi-day trading system for a UK Stocks and Shares ISA
@@ -23,24 +54,19 @@ python -m pytest -q
 python -m isa_system.smoke_test
 ```
 
-Start the local control plane in one terminal:
+Start the local API in one terminal:
 
 ```powershell
-python -m uvicorn isa_system.api.main:app --host 127.0.0.1 --port 8000
-Invoke-RestMethod http://127.0.0.1:8000/health
+python scripts/run_api.py
+Invoke-RestMethod http://127.0.0.1:8002/health
 ```
 
-<<<<<<< Updated upstream
 Start the dashboard in another terminal:
-=======
-Start the Streamlit dashboard:
->>>>>>> Stashed changes
 
 ```powershell
 python -m streamlit run src/isa_system/dashboard/app.py
 ```
 
-<<<<<<< Updated upstream
 Then open the Streamlit URL printed by the command, usually
 `http://localhost:8501`. Begin on Overview, then use Management to confirm
 runtime mode, broker status, provider gaps, cache freshness, and live guardrails.
@@ -52,16 +78,9 @@ Expected first-run state:
   context with a broker setup warning.
 - No `OPENAI_API_KEY` means deep research is unavailable, so buy/add rows cannot
   receive the `RESEARCH_PASSED` gate needed for preview approval.
+- Health Check still runs without `OPENAI_API_KEY`, but it uses conservative
+  local fallback targets instead of the configured OpenAI deep research model.
 - Recommendation and preview pages are review-only. They do not submit orders.
-=======
-Start the React dashboard:
-
-```powershell
-cd apps/web
-npm install
-npm run dev
-```
->>>>>>> Stashed changes
 
 ## Configuration
 
@@ -79,7 +98,7 @@ agent prompts.
 | Provider | Variables | When to configure | First-run impact if blank |
 | --- | --- | --- | --- |
 | Trading 212 | `TRADING212_API_KEY`, `TRADING212_API_SECRET`, `TRADING212_ENVIRONMENT` | Configure for read-only account summary, positions, active orders, and broker universe context. Use `demo` first; use `live` only when the operator intentionally wants live account context. | Dashboard remains safe with `not_configured` broker status. |
-| OpenAI | `OPENAI_API_KEY`, `OPENAI_MODEL` | Configure when the pilot needs the deep research gate for buy/add candidates. | Buy/add preview approval remains blocked because no non-expired `RESEARCH_PASSED` review can be produced. |
+| OpenAI | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_HEALTH_MODEL` | Configure when the pilot needs the deep research gate for buy/add candidates or on-demand holdings health reports. `OPENAI_HEALTH_MODEL` defaults to `o3-deep-research`. | Buy/add preview approval remains blocked because no non-expired `RESEARCH_PASSED` review can be produced. Health Check falls back to local scenario targets. |
 | Alpha Vantage, FMP, FRED | `ALPHA_VANTAGE_API_KEY`, `FMP_API_KEY`, `FRED_API_KEY` | Optional convenience enrichment for prices, fundamentals, and macro context. | The app uses local fallbacks or empty provider results where safe. |
 | Companies House, SEC EDGAR | `COMPANIES_HOUSE_API_KEY`, `SEC_USER_AGENT` | Optional official-source identity and filing context. SEC asks automated clients to identify themselves. | Official-source coverage stays partial. |
 | Sentiment overlays | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `X_BEARER_TOKEN` | Optional, low-weight sentiment enrichment. | Sentiment stays disabled and must not block the local cockpit. |

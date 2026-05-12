@@ -1,15 +1,8 @@
-"""Run the FastAPI control plane."""
+"""Run the local ISA portfolio intelligence FastAPI service."""
 
 from __future__ import annotations
 
-import uvicorn
-
-
-def main() -> None:
-    """Start uvicorn on localhost."""
-
-    uvicorn.run("isa_system.api.main:app", host="127.0.0.1", port=8000)
-
+from isa_system.api.main import main
 
 if __name__ == "__main__":
     main()

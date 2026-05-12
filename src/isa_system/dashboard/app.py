@@ -14,6 +14,7 @@ from isa_system.dashboard.data import (
 )
 from isa_system.dashboard.pages import (
     advanced,
+    health_check,
     management,
     overview,
     preview,
@@ -53,6 +54,7 @@ def main() -> None:
                 "Screener",
                 "Recommendations",
                 "Deep Research",
+                "Health Check",
                 "Preview",
                 "Management",
                 "Advanced",
@@ -121,6 +123,8 @@ def main() -> None:
             include_defaults=include_defaults,
             include_llm=include_llm,
         )
+    elif page == "Health Check":
+        health_check.render(snapshot)
     elif page == "Preview":
         preview.render(
             snapshot,

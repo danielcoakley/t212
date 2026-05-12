@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from hypothesis import given
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from isa_system.domain.models import TargetWeight
@@ -16,6 +16,7 @@ from isa_system.portfolio.constraints import cap_and_normalise
         max_size=20,
     )
 )
+@settings(suppress_health_check=[HealthCheck.too_slow])
 def test_capped_weights_remain_long_only(values: list[float]) -> None:
     """Capped and normalised weights stay within limits."""
 

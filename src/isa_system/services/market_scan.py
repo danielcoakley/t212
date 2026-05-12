@@ -325,9 +325,7 @@ def _upper_set(values: Sequence[str]) -> set[str]:
     return {value.upper() for value in values}
 
 
-def _symbols_from_odp_rows(
-    rows: Sequence[dict[str, Any]], *, block_tickers: set[str]
-) -> list[str]:
+def _symbols_from_odp_rows(rows: Sequence[dict[str, Any]], *, block_tickers: set[str]) -> list[str]:
     symbols: list[str] = []
     seen: set[str] = set()
     for row in rows:

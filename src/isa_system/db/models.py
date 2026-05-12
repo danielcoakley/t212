@@ -5,11 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-<<<<<<< Updated upstream
-from sqlalchemy import DateTime, Index, Integer, Numeric, String, Text, UniqueConstraint
-=======
 from sqlalchemy import Date, DateTime, Index, Integer, Numeric, String, Text, UniqueConstraint
->>>>>>> Stashed changes
 from sqlalchemy.orm import Mapped, mapped_column
 
 from isa_system.db.base import Base
@@ -330,7 +326,9 @@ class CatalystEvent(Base, TimestampMixin):
     """Explainable catalyst event extracted from official sources."""
 
     __tablename__ = "catalyst_events"
-    __table_args__ = (Index("ix_catalyst_events_issuer_published", "issuer_id", "published_at_utc"),)
+    __table_args__ = (
+        Index("ix_catalyst_events_issuer_published", "issuer_id", "published_at_utc"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     issuer_id: Mapped[int | None] = mapped_column(Integer)
@@ -455,6 +453,81 @@ class ResearchReview(Base):
     request_json: Mapped[str] = mapped_column(Text, nullable=False)
     response_json: Mapped[str] = mapped_column(Text, nullable=False)
     warnings_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+
+
+class InvestmentThesisRecord(Base):
+    """Persisted portfolio-intelligence thesis snapshot."""
+
+    __tablename__ = "investment_theses"
+    __table_args__ = (Index("ix_investment_theses_symbol", "symbol"),)
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    decision: Mapped[str] = mapped_column(String(40), nullable=False)
+    created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class ResearchReportRecord(Base):
+    """Persisted structured investment memo."""
+
+    __tablename__ = "research_reports"
+    __table_args__ = (
+        Index("ix_research_reports_symbol", "symbol"),
+        Index("ix_research_reports_thesis_id", "thesis_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    thesis_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    decision: Mapped[str] = mapped_column(String(40), nullable=False)
+    markdown_path: Mapped[str] = mapped_column(Text, nullable=False)
+    generated_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class HoldingHealthReportRecord(Base):
+    """Append-only health report run for current broker holdings."""
+
+    __tablename__ = "holding_health_reports"
+    __table_args__ = (
+        Index("ix_holding_health_reports_generated_at", "generated_at_utc"),
+        Index("ix_holding_health_reports_evidence_hash", "evidence_hash"),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str] = mapped_column(String(120), nullable=False)
+    generated_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    holdings_snapshot_at_utc: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    holding_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    evidence_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    warnings_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+
+
+class HoldingHealthUpdateRecord(Base):
+    """Operator-accepted or adjusted health report output for one holding."""
+
+    __tablename__ = "holding_health_updates"
+    __table_args__ = (
+        Index("ix_holding_health_updates_report", "report_id"),
+        Index("ix_holding_health_updates_symbol", "symbol"),
+        Index("ix_holding_health_updates_updated_at", "updated_at_utc"),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    report_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    updated_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    carried_forward_action: Mapped[str] = mapped_column(String(40), nullable=False)
+    adjusted: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
 
 
 class PaperCycle(Base, TimestampMixin):
