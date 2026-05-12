@@ -20,7 +20,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from isa_system.data.providers.base import ProviderNotConfigured
-from isa_system.domain.enums import OrderSide, OrderType, RuntimeMode
+from isa_system.domain.enums import OrderSide, RuntimeMode
 from isa_system.execution.order_models import OrderBatch, OrderIntent
 from isa_system.utils.hashing import make_idempotency_key, sha256_digest
 from isa_system.utils.time import now_utc
@@ -169,34 +169,9 @@ class Trading212Client:
         return self._request("GET", f"/equity/history/orders?limit={min(limit, 50)}")
 
     def submit_order(self, intent: OrderIntent) -> Trading212OrderResponse:
-        """Submit a market or limit order using documented endpoint shapes.
+        """Live order submission is not implemented in this unified build."""
 
-        The caller is responsible for idempotency reservation and live-mode
-        arming. This method intentionally does not retry POST requests.
-        """
-
-        if intent.order_type == OrderType.MARKET:
-            payload = {
-                "ticker": intent.broker_ticker,
-                "quantity": float(_signed_quantity(intent.side, intent.quantity)),
-                "extendedHours": False,
-            }
-            endpoint = "/equity/orders/market"
-        elif intent.order_type == OrderType.LIMIT:
-            if intent.limit_price is None:
-                raise ValueError("Limit orders require a limit price.")
-            payload = {
-                "ticker": intent.broker_ticker,
-                "quantity": float(_signed_quantity(intent.side, intent.quantity)),
-                "limitPrice": float(intent.limit_price),
-                "timeValidity": intent.time_validity,
-            }
-            endpoint = "/equity/orders/limit"
-        else:
-            raise NotImplementedError(
-                "Only documented market and limit order submission is enabled in v1."
-            )
-        return Trading212OrderResponse.model_validate(self._request("POST", endpoint, json=payload))
+        raise NotImplementedError("Live Trading 212 order submission is not implemented.")
 
 
 class Trading212BrokerAdapter:
@@ -232,13 +207,9 @@ class Trading212BrokerAdapter:
         )
 
     def submit_live(self, batch: OrderBatch, *, live_armed: bool) -> list[Trading212OrderResponse]:
-        """Submit a previously previewed batch when live mode is armed."""
+        """Live order submission is not implemented in this unified build."""
 
-        if batch.mode != RuntimeMode.LIVE:
-            raise ValueError("Trading 212 live submit requires live mode.")
-        if not live_armed:
-            raise PermissionError("Live trading is not armed.")
-        return [self.client.submit_order(order) for order in batch.orders]
+        raise NotImplementedError("Live Trading 212 order submission is not implemented.")
 
 
 def _signed_quantity(side: OrderSide, quantity: Decimal) -> Decimal:

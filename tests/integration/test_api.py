@@ -19,10 +19,9 @@ def test_health_and_preview() -> None:
     assert "batch_hash" in preview.json()
 
 
-def test_live_submit_requires_arm() -> None:
-    """Live submit is rejected unless armed."""
+def test_live_submit_route_does_not_exist() -> None:
+    """Unified portfolio intelligence API exposes no live submit route."""
 
     client = TestClient(app)
-    client.post("/modes/live")
     response = client.post("/rebalances/submit", json={"batch_hash": "abc", "mode": "live"})
-    assert response.status_code == 403
+    assert response.status_code == 404

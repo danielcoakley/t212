@@ -26,7 +26,13 @@ def health(state: ControlState = Depends(get_state)) -> HealthResponse:
         mode=state.mode,
         live_armed=state.live_armed,
         kill_switch_enabled=state.kill_switch_enabled,
-        subsystems={"database": "ok", "broker": broker_status, "data_lake": "ok"},
+        subsystems={
+            "database": "ok",
+            "broker": broker_status,
+            "data_lake": "ok",
+            "openbb": "not_checked",
+            "live_trading": "not_implemented",
+        },
     )
 
 

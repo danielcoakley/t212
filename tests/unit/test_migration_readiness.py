@@ -12,6 +12,7 @@ from alembic.script import ScriptDirectory
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = REPO_ROOT / "src" / "isa_system" / "db" / "migrations"
 PAPER_CYCLES_MIGRATION = MIGRATIONS_DIR / "versions" / "0003_paper_cycles.py"
+HEALTH_REPORTS_MIGRATION = MIGRATIONS_DIR / "versions" / "0006_holding_health_reports.py"
 
 
 def test_paper_cycle_migration_is_discoverable_in_alembic_chain() -> None:
@@ -28,6 +29,22 @@ def test_paper_cycle_migration_is_discoverable_in_alembic_chain() -> None:
     assert Path(revision.path).name == PAPER_CYCLES_MIGRATION.name
     assert revision.down_revision == "0002_research_reviews"
     assert "0003_paper_cycles" in discovered_revisions
+
+
+def test_holding_health_migration_is_discoverable_in_alembic_chain() -> None:
+    """Alembic can find the holding-health report migration."""
+
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIR))
+    script = ScriptDirectory.from_config(config)
+
+    revision = script.get_revision("0006_holding_health_reports")
+    discovered_revisions = {item.revision for item in script.walk_revisions()}
+
+    assert revision is not None
+    assert Path(revision.path).name == HEALTH_REPORTS_MIGRATION.name
+    assert revision.down_revision == "0005_research_reports"
+    assert "0006_holding_health_reports" in discovered_revisions
 
 
 def test_paper_cycle_migration_declares_expected_tables_indexes_and_downgrade() -> None:

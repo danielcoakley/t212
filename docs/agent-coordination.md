@@ -883,3 +883,610 @@ and use temporary SQLite files, so they stay offline and should not conflict
 with report/paper implementation branches. Future migrations may extend the
 Alembic chain, but `0003_paper_cycles` should remain discoverable by revision
 ID.
+
+### 2026-05-11 - Portfolio Intelligence Phase 0 Bootstrap
+
+What changed: Started the requested portfolio intelligence build by adapting
+the existing `isa_system` package as the single implementation home. Added
+planning/status docs, OpenBB and port-8002 settings, example YAML configs,
+OpenBB keyless check script, unified API runner, placeholder phase scripts, and
+an OpenBB-independent health contract that keeps live trading marked as not
+implemented.
+
+What remains: Phase 1 should add Finviz discovery, local HTML caching, parser
+fixtures, candidate deduplication, and discovery/candidate API routes. Existing
+live execution scaffolding remains guarded legacy MVP code and must not be
+expanded for this workflow.
+
+Files touched:
+
+- `.env.example`
+- `Makefile`
+- `README.md`
+- `pyproject.toml`
+- `configs/*.yaml`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_plan.md`
+- `docs/implementation_status.md`
+- `scripts/check_openbb.py`
+- `scripts/run_api.py`
+- `scripts/run_discovery.py`
+- `scripts/run_top10_research.py`
+- `scripts/run_portfolio_review.py`
+- `scripts/smoke_test.py`
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/health.py`
+- `src/isa_system/constants.py`
+- `src/isa_system/settings.py`
+- `tests/integration/test_portfolio_phase0_api.py`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 116 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: A direct port smoke on `127.0.0.1:8002` found an
+existing listener, so the agent did not stop or replace it. Clear that process
+before manual API smoke with `python scripts/run_api.py`.
+
+### 2026-05-11 - Portfolio Intelligence Phase 1 Finviz Discovery
+
+What changed: Added a Finviz discovery package inside `isa_system` with curated
+screener YAML loading, polite cached fetching, blocked/empty page handling,
+fixture parser tests, symbol-level deduplication, source screener preservation,
+multi-screener boost, discovery/candidate API routes, and an offline discovery
+CLI.
+
+What remains: Phase 2 should add OpenBB enrichment with centralised route
+definitions and graceful unavailable-route behaviour. Live Finviz usage remains
+operator-triggered and conservative.
+
+Files touched:
+
+- `configs/finviz_screeners.yaml`
+- `scripts/run_discovery.py`
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/candidates.py`
+- `src/isa_system/api/routers/discovery.py`
+- `src/isa_system/discovery/*`
+- `tests/fixtures/finviz_*.html`
+- `tests/integration/test_discovery_api.py`
+- `tests/unit/test_candidate_intake.py`
+- `tests/unit/test_finviz_parser.py`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 121 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+- `$env:PYTHONPATH='src'; python scripts/run_discovery.py --fixtures`
+
+Integration concerns: The latest discovery result is process-local for now.
+Persistence can be added when score snapshots/thesis records are introduced.
+
+### 2026-05-11 - Portfolio Intelligence Phase 2 OpenBB Enrichment
+
+What changed: Added an OpenBB enrichment package inside `isa_system` with
+centralised endpoint definitions, a configurable cached client, health checks,
+candidate enrichment packets, fixture-only offline enrichment, price/fundamental
+fixtures, data quality scoring, missing-section explanations, and enrichment
+API routes.
+
+What remains: Phase 3 should consume enrichment packets for factor scoring,
+ranking, and top 10 selection. The exact OpenBB route paths remain isolated in
+`src/isa_system/enrichment/openbb_endpoints.py` until validated against the
+local OpenBB install.
+
+Files touched:
+
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/enrichment.py`
+- `src/isa_system/enrichment/*`
+- `tests/fixtures/openbb_*.json`
+- `tests/integration/test_enrichment_api.py`
+- `tests/unit/test_openbb_enrichment.py`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 127 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: Fixture enrichment does not call OpenBB for missing
+sections. Live route availability should be treated as uncertain and corrected
+only in `openbb_endpoints.py`.
+
+### 2026-05-11 - Portfolio Intelligence Phase 3 Scoring
+
+What changed: Added deterministic opportunity scoring inside `isa_system` with
+factor weights, factor score models, composite score snapshots, top 10 ranking,
+missing/stale data penalties, multi-screener boosts, explanations, and score
+API routes.
+
+What remains: Phase 4 should turn top candidates into persistent thesis records
+with BUY/WATCHLIST/REJECT decision rules. The scoring formulas are intentionally
+conservative placeholders until richer OpenBB and official-source fields are
+validated.
+
+Files touched:
+
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/scores.py`
+- `src/isa_system/scoring/*`
+- `tests/integration/test_scores_api.py`
+- `tests/unit/test_scoring.py`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 133 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: Score state is process-local and should become durable
+when thesis/report persistence is added.
+
+### 2026-05-11 - Portfolio Intelligence Phase 4 Thesis Engine
+
+What changed: Added persistent investment thesis tracking with statuses,
+decision labels, deterministic thesis generation, decision rules, SQLite-backed
+thesis records, an Alembic migration, lifecycle helpers, and thesis API routes.
+The generator avoids fabricating target or entry levels when current price data
+is unavailable.
+
+What remains: Phase 5 should generate structured research reports and update
+thesis fields from report output. Phase 6 should provide the real
+portfolio-improves input for BUY_NOW candidates.
+
+Files touched:
+
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/thesis.py`
+- `src/isa_system/db/models.py`
+- `src/isa_system/db/migrations/versions/0004_investment_theses.py`
+- `src/isa_system/thesis/*`
+- `tests/integration/test_thesis_api.py`
+- `tests/unit/test_thesis.py`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 141 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: BUY_NOW is a thesis/research label only. No broker order
+submission or live execution path was added.
+
+### 2026-05-11 - Portfolio Intelligence Phase 5 Research Reports
+
+What changed: Added structured research report generation and persistence with
+Markdown artifacts, SQLite report records, a source-bounded prompt builder,
+deterministic no-key memo output, thesis updates from reports, and research API
+routes including top-10 report generation.
+
+What remains: Optional OpenAI memo generation is not executed yet; the prompt
+builder is ready for a later explicit integration. Phase 6 should add portfolio
+comparison and rebalance proposal logic.
+
+Files touched:
+
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/research_reports.py`
+- `src/isa_system/db/models.py`
+- `src/isa_system/db/migrations/versions/0005_research_reports.py`
+- `src/isa_system/reports/*`
+- `tests/integration/test_research_reports_api.py`
+- `tests/unit/test_reports.py`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 145 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: Reports remain research artifacts only and do not create
+order authority.
+
+### 2026-05-11 - Portfolio Intelligence Phase 6 Portfolio Manager
+
+What changed: Added holdings models, risk constraints, sleeve defaults,
+rationale-based rebalance proposal models, portfolio comparison logic, manual
+approval flags, no-churn safeguards, material-superiority replacement logic,
+cooldown blocking, broken/target-reached holding proposals, and portfolio
+manager API routes.
+
+What remains: Phase 7 should add Trading 212 read-only/order-preview support
+and remove or neutralize the legacy submit route so the unified system exposes
+no live order submission endpoint.
+
+Files touched:
+
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/portfolio_manager.py`
+- `src/isa_system/portfolio/holdings.py`
+- `src/isa_system/portfolio/risk.py`
+- `src/isa_system/portfolio/sleeve.py`
+- `src/isa_system/portfolio/proposal_models.py`
+- `src/isa_system/portfolio/comparison.py`
+- `src/isa_system/portfolio/rebalance.py`
+- `tests/integration/test_portfolio_manager_api.py`
+- `tests/unit/test_portfolio_manager.py`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 153 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: Portfolio manager proposals are review-only and always
+carry `manual_approval_required=true`.
+
+### 2026-05-11 - Portfolio Intelligence Phase 7 Trading 212 Safety
+
+What changed: Added Trading 212 read-only/order-preview package, broker account
+and positions routes, local order preview route, deterministic duplicate hash
+logic, manual approval warnings, and tests. Removed the legacy
+`/rebalances/submit` route from the unified API surface and disabled legacy
+Trading 212 provider submit methods with `NotImplementedError`.
+
+What remains: Phase 8 should expose outputs as OpenBB Workspace-friendly widget
+metadata. Any future live execution is separate work and must go through a new
+safety review.
+
+Files touched:
+
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/broker.py`
+- `src/isa_system/api/routers/rebalances.py`
+- `src/isa_system/data/providers/trading212.py`
+- `src/isa_system/trading212/*`
+- `tests/integration/test_api.py`
+- `tests/integration/test_api_release_readiness.py`
+- `tests/integration/test_broker_api.py`
+- `tests/integration/test_mvp_guardrails.py`
+- `tests/unit/test_trading212_preview.py`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 159 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: `/rebalances/submit` now returns 404. Existing callers
+must use `/orders/preview` for local preview only.
+
+### 2026-05-11 - Portfolio Intelligence Phase 8 Workspace Metadata
+
+What changed: Added OpenBB Workspace-style widget metadata, a
+`/workspace/widgets.json` route, risk-warning endpoint, and tests that all
+advertised widget target endpoints are registered and work without OpenBB.
+
+What remains: Phase 9 should add end-to-end orchestration and offline smoke
+artifacts. Exact OpenBB Workspace custom backend details may require small
+metadata adjustments later.
+
+Files touched:
+
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/workspace.py`
+- `src/isa_system/workspace/*`
+- `tests/integration/test_workspace_api.py`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 161 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: No custom frontend was added; this is backend metadata
+only.
+
+### 2026-05-11 - Portfolio Intelligence Phase 9 Orchestration
+
+What changed: Added the full fixture-backed orchestrator flow, orchestrator API
+routes, full-pipeline script, smoke script, run summary model, and smoke
+artifacts for candidates, top 10, research reports, watchlist, rebalance
+proposals, order previews, and run summary.
+
+What remains: Phase 10 should complete the documentation set and final
+hardening checks.
+
+Files touched:
+
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/orchestrator.py`
+- `src/isa_system/orchestrator.py`
+- `scripts/run_full_pipeline.py`
+- `scripts/smoke_test.py`
+- `tests/integration/test_orchestrator.py`
+- `docs/acceptance_checklist.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python scripts/smoke_test.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 163 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The orchestrator writes local artifacts and never submits
+broker orders. Generated order previews are local/manual-review only.
+
+### 2026-05-11 - Portfolio Intelligence Phase 10 Docs And Hardening
+
+What changed: Added the required documentation set for architecture, workflow,
+OpenBB, Finviz, scoring, thesis lifecycle, decision rules, portfolio manager,
+Trading 212 safety, Workspace integration, runbook, and roadmap. Final smoke,
+test, lint, format, and mypy checks were run.
+
+What remains: Validate provider endpoint paths against local OpenBB and Trading
+212 demo credentials. Legacy mypy warnings remain in older MVP modules and are
+documented in `docs/implementation_status.md`.
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 163 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+- `$env:PYTHONPATH='src'; python scripts/smoke_test.py`
+- `$env:PYTHONPATH='src'; python -m mypy` -> 25 documented legacy warnings
+
+Integration concerns: Live Trading 212 submission is not implemented and
+`/rebalances/submit` returns 404.
+
+### 2026-05-12 - Holdings Health Check
+
+What changed: Added an on-demand health report workflow for current holdings.
+The report uses the configured OpenAI health model when `OPENAI_API_KEY` is
+available, defaults to `o3-deep-research`, and falls back to conservative local
+scenario targets when no key is configured. Report runs are persisted in SQLite,
+and operator accepted/adjusted bear/base/bull targets plus carried-forward
+actions are stored in a separate history table.
+
+What remains: Decide whether accepted health-check targets should update thesis
+records directly or remain as a separate overlay. Validate real deep-research
+latency/model access with the operator's OpenAI account.
+
+Files touched:
+
+- `.env.example`
+- `README.md`
+- `docs/runbook.md`
+- `docs/implementation_status.md`
+- `docs/agent-coordination.md`
+- `src/isa_system/settings.py`
+- `src/isa_system/db/models.py`
+- `src/isa_system/db/migrations/versions/0006_holding_health_reports.py`
+- `src/isa_system/services/holding_health.py`
+- `src/isa_system/api/main.py`
+- `src/isa_system/api/routers/holding_health.py`
+- `src/isa_system/dashboard/app.py`
+- `src/isa_system/dashboard/pages/health_check.py`
+- `tests/unit/test_holding_health.py`
+- `tests/unit/test_dashboard_health_check.py`
+- `tests/integration/test_holding_health_api.py`
+- `tests/unit/test_migration_readiness.py`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_holding_health.py tests/unit/test_dashboard_health_check.py tests/integration/test_holding_health_api.py tests/unit/test_migration_readiness.py`
+- `python -m ruff check src/isa_system/services/holding_health.py src/isa_system/dashboard/pages/health_check.py src/isa_system/api/routers/holding_health.py src/isa_system/settings.py src/isa_system/db/models.py src/isa_system/api/main.py tests/unit/test_holding_health.py tests/unit/test_dashboard_health_check.py tests/integration/test_holding_health_api.py tests/unit/test_migration_readiness.py`
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 170 passed
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+- `$env:PYTHONPATH='src'; python -m mypy` -> unchanged 25 legacy warnings in
+  pre-existing modules
+
+Integration concerns: No broker write route, live order submission, live arming
+control, or Trading 212 POST path was added. The Health Check page carries
+forward review state only.
+
+### 2026-05-12 - Command Centre Finviz Screener Page
+
+What changed: Converted the new FastAPI-served command centre nav to only show
+Overview and the first real feature page, Finviz Screener. Added a configurable
+Finviz screener workbench with preset loading, curated Finviz filter capability
+toggles, raw filter-code entry, dynamic Finviz URL generation, fixture/live run
+actions, full filtered-table rendering, principal valuation column toggles, and
+per-row Finviz profile links.
+
+What remains: Validate live Finviz table shape against current site output over
+several real screener runs and add pagination support if the operator wants
+more than the first returned page.
+
+Files touched:
+
+- `src/isa_system/api/routers/discovery.py`
+- `src/isa_system/discovery/finviz_custom.py`
+- `src/isa_system/discovery/finviz_parser.py`
+- `src/isa_system/discovery/candidate_intake.py`
+- `src/isa_system/discovery/models.py`
+- `src/isa_system/web/index.html`
+- `src/isa_system/web/app.js`
+- `src/isa_system/web/styles.css`
+- `tests/unit/test_finviz_parser.py`
+- `tests/integration/test_discovery_api.py`
+- `tests/integration/test_command_center_ui.py`
+- `docs/agent-coordination.md`
+- `docs/implementation_status.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/unit/test_finviz_parser.py tests/integration/test_discovery_api.py tests/integration/test_command_center_ui.py` -> 8 passed.
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 175 passed.
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: The configurable screener updates the process-local
+latest discovery result for downstream scoring. Finviz remains operator-run,
+cached, polite, and safely non-critical if blocked or layout changes.
+
+### 2026-05-12 - Finviz-Like Screener Controls
+
+What changed: Reworked the command centre screener page to mirror the main
+Finviz screener interaction more closely. The page now has a compact top bar
+with preset, order-by, direction, signal, ticker input, run, collapsible
+filters, and icon-only external Finviz links. Filter tuning is dropdown-based
+and grouped under Descriptive, Fundamental, and Technical tabs. Column selection
+is category-grouped, supports adding custom column labels, and selected columns
+now appear even when a particular response has blank values. Table headers sort
+client-side by any visible column.
+
+What remains: Continue validating live Finviz response columns across different
+views and add pagination if the operator wants broader capture than the first
+returned page.
+
+Files touched:
+
+- `src/isa_system/discovery/finviz_custom.py`
+- `src/isa_system/web/index.html`
+- `src/isa_system/web/app.js`
+- `src/isa_system/web/styles.css`
+- `tests/integration/test_discovery_api.py`
+- `tests/integration/test_command_center_ui.py`
+- `docs/agent-coordination.md`
+- `docs/implementation_status.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests/integration/test_discovery_api.py tests/integration/test_command_center_ui.py tests/unit/test_finviz_parser.py` -> 8 passed.
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 175 passed.
+- `python -m ruff check .`
+- `python -m ruff format --check .`
+
+Integration concerns: Preset changes trigger a fresh operator-visible Finviz
+run. Other filter dropdown changes update the pending settings and require the
+Run button, avoiding rapid repeated scrape requests while tuning controls.
+
+### 2026-05-12 - Command Centre Screener Refinement
+
+What changed: Revised the Finviz screener page back to the command-centre
+visual language while keeping presets and a collapsible, category-split filter
+drawer. Expanded the exposed dropdown choices for the main descriptive,
+fundamental, and technical controls, restored the lighter results-table style,
+kept dynamic/sortable columns, and added local persistence for operator-saved
+custom screener presets.
+
+What remains: Validate edge-case Finviz filter codes against live pages and add
+pagination if first-page capture is too narrow for the operator workflow.
+
+Files touched:
+
+- `src/isa_system/api/routers/discovery.py`
+- `src/isa_system/discovery/finviz_custom.py`
+- `src/isa_system/web/index.html`
+- `src/isa_system/web/app.js`
+- `src/isa_system/web/styles.css`
+- `tests/integration/test_discovery_api.py`
+- `docs/agent-coordination.md`
+- `docs/implementation_status.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest tests/integration/test_discovery_api.py tests/integration/test_command_center_ui.py -q` -> 6 passed.
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 176 passed.
+- `python -m ruff check .`
+- `node --check src/isa_system/web/app.js`
+- `$env:PYTHONPATH='src'; python -m mypy` -> unchanged 25 legacy errors in
+  recommendation handoff, pilot workflow, paper persistence, and operator
+  report modules.
+- Browser/IAB QA on `http://localhost:8501/#screener` for filter expansion,
+  saved custom presets, fixture results, dynamic RSI column, and table sorting.
+
+Integration concerns: Saved presets are stored in local artifacts only; no
+broker write path, live order submission, or unattended trading path was added.
+
+### 2026-05-12 - Screener Table Data Alignment
+
+What changed: Fixed Finviz table parsing so the filter form is no longer used
+as the results header source. The parser now scopes to `screener_table`, handles
+Finviz's omitted header `</tr>`, maps valuation fields to the correct columns,
+and extracts embedded company, industry, and country metadata. The command
+centre table now shows Company and Industry by default, uses tighter column
+widths, and applies first-pass sector-aware good/neutral/bad colour coding.
+
+What remains: Calibrate colour bands by sector/theme after more live examples
+are reviewed. Consider moving the heuristic thresholds into configuration if
+the operator wants to tune them without code changes.
+
+Files touched:
+
+- `src/isa_system/discovery/finviz_parser.py`
+- `src/isa_system/web/index.html`
+- `src/isa_system/web/app.js`
+- `src/isa_system/web/styles.css`
+- `tests/fixtures/finviz_elite_garp.html`
+- `tests/unit/test_finviz_parser.py`
+- `docs/agent-coordination.md`
+- `docs/implementation_status.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest tests/unit/test_finviz_parser.py tests/integration/test_discovery_api.py tests/integration/test_command_center_ui.py -q` -> 10 passed.
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 177 passed.
+- `python -m ruff check .`
+- `node --check src/isa_system/web/app.js`
+- `$env:PYTHONPATH='src'; python -m mypy` -> unchanged 25 legacy errors.
+- Browser/IAB QA on `http://localhost:8501/#screener` confirmed company,
+  industry, P/E, forward P/E, EPS, volume, and coloured metric rendering.
+
+Integration concerns: No live trading or broker write path was touched.
+
+### 2026-05-12 - Screener Review Cleanup
+
+What changed: Applied browser review feedback for the screener page. The nav
+label now reads `Screener`, the old page heading/eyebrow/help copy is removed,
+the fixture-only dashboard button is hidden from the operator UI, and the
+external Finviz icon now sits beside the preset dropdown.
+
+What remains: Fixture runs remain available through tests/offline paths, not as
+a visible operator action. Live table pagination and richer saved table-state
+behaviour remain future discovery refinements.
+
+Files touched:
+
+- `src/isa_system/web/index.html`
+- `src/isa_system/web/styles.css`
+- `tests/integration/test_command_center_ui.py`
+- `docs/agent-coordination.md`
+- `docs/implementation_status.md`
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest tests/integration/test_command_center_ui.py -q` -> 3 passed.
+- `$env:PYTHONPATH='src'; python -m pytest -q` -> 177 passed.
+- `python -m ruff check .`
+- `python -m ruff format --check src/isa_system/web tests/integration/test_command_center_ui.py`
+- `node --check src/isa_system/web/app.js`
+- `$env:PYTHONPATH='src'; python -m mypy` -> unchanged 25 legacy errors in
+  pre-existing modules.
+- Browser/IAB QA on `http://localhost:8501/#screener` confirmed the review
+  cleanup and no current-asset console errors.
+
+Integration concerns: No live trading, broker write path, or API key exposure
+was introduced.

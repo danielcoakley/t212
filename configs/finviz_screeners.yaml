@@ -1,0 +1,10 @@
+screeners:
+  - name: Elite GARP Compounders
+    purpose: Find quality growth companies with reasonable valuation and confirmed trend.
+    url: https://finviz.com/screener.ashx?v=111&f=cap_smallover,fa_debteq_u1,fa_eps5years_o15,fa_epsqoq_o15,fa_grossmargin_o30,fa_pe_u40,fa_roe_o15,fa_salesqoq_o15,sh_avgvol_o500,ta_perf13w_o5,ta_perf52w_o10,ta_sma50_pa,ta_sma200_pa&ft=2
+  - name: Hidden Compounders
+    purpose: Find smaller or mid-sized companies with strong growth, improving profitability and positive technical structure.
+    url: https://finviz.com/screener.ashx?v=111&f=cap_smallover,cap_midunder,fa_epsnext5years_o15,fa_epsqoq_o20,fa_grossmargin_o30,fa_salesqoq_o20,sh_avgvol_o300,ta_perf13w_o5,ta_sma50_pa,ta_sma200_pa&ft=2
+  - name: Post-Earnings Acceleration
+    purpose: Find stocks showing strong recent earnings and price acceleration.
+    url: https://finviz.com/screener.ashx?v=111&f=fa_epsqoq_o25,fa_salesqoq_o20,sh_avgvol_o500,ta_change_u5,ta_perf4w_o8,ta_sma20_pa,ta_sma50_pa&ft=2

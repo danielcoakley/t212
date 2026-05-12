@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from isa_system.api.deps import ControlState, get_state
-from isa_system.api.schemas import RebalancePreviewRequest, SubmitRequest
-from isa_system.domain.enums import RuntimeMode
+from isa_system.api.schemas import RebalancePreviewRequest
 from isa_system.domain.models import TargetWeight
 from isa_system.portfolio.costs import CostModel
 from isa_system.portfolio.rebalancer import build_rebalance_plan
@@ -175,14 +173,3 @@ def paper_simulation() -> PaperSimulationSnapshot:
     valuation = value_current_holdings(snapshot)
     preview_snapshot = build_preview_from_holdings(snapshot, valuation)
     return simulate_paper_fills(preview_snapshot)
-
-
-@router.post("/rebalances/submit")
-def submit(request: SubmitRequest, state: ControlState = Depends(get_state)) -> dict[str, str]:
-    """Submit a paper batch or reject unsafe live submit."""
-
-    if state.kill_switch_enabled:
-        raise HTTPException(status_code=423, detail="Kill switch is enabled.")
-    if request.mode == RuntimeMode.LIVE and not state.live_armed:
-        raise HTTPException(status_code=403, detail="Live trading is not armed.")
-    return {"status": "accepted", "batch_hash": request.batch_hash, "mode": request.mode.value}

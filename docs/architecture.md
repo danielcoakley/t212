@@ -1,93 +1,62 @@
-# Architecture
+# ISA Portfolio Intelligence Architecture
 
-The starter is split into four planes and keeps all storage timestamps as
-timezone-aware UTC. Europe/London conversion is only for user-facing views.
+This repository is one unified `isa_system` application for local-first ISA
+portfolio intelligence. It keeps the existing safety-first Python/FastAPI stack
+and adds Finviz discovery, OpenBB enrichment, scoring, thesis tracking,
+research reports, portfolio comparison, Trading 212 read-only/order preview,
+Workspace metadata, and orchestration.
+
+Live Trading 212 order submission is not implemented.
+
+## Data Flow
 
 ```mermaid
-flowchart TD
-    subgraph Data["Research and Data Plane"]
-        T212["Trading 212 account, instruments, positions"]
-        YF["yfinance convenience research bars"]
-        SEC["SEC EDGAR official US filings"]
-        UK["Companies House, LSE RNS, FCA NSM"]
-        MACRO["FRED macro series"]
-        LAKE["DuckDB + partitioned Parquet lake"]
-    end
-    subgraph Strategy["Deterministic Strategy and Risk Plane"]
-        PIT["Point-in-time joins"]
-        FACTORS["Quality, value, momentum, dividend factors"]
-        RANK["Ranking and hard filters"]
-        RECS["Recommendation queue and broker-universe screener"]
-        RESEARCH["Deep research gate"]
-        RISK["Constraints, costs, SDRT, vetoes"]
-    end
-    subgraph Control["Execution and Control Plane"]
-        PREVIEW["Rebalance preview"]
-        IDEM["Local idempotency and duplicate guard"]
-        PAPER["Paper broker"]
-        LIVE["Trading 212 live adapter"]
-        DB["SQLite or Postgres operational DB"]
-    end
-    subgraph Operator["Operator Plane"]
-        API["FastAPI control plane"]
-        DASH["Streamlit dashboard"]
-        AUDIT["Append-only audit log"]
-    end
-    T212 --> LAKE
-    YF --> LAKE
-    SEC --> LAKE
-    UK --> LAKE
-    MACRO --> LAKE
-    LAKE --> PIT
-    PIT --> FACTORS --> RANK --> RECS --> RESEARCH --> RISK --> PREVIEW
-    PREVIEW --> IDEM
-    IDEM --> PAPER
-    IDEM --> LIVE
-    PREVIEW --> DB
-    PAPER --> DB
-    LIVE --> DB
-    DB --> AUDIT
-    API --> PREVIEW
-    API --> DASH
-    DASH --> API
+flowchart LR
+    Finviz["Finviz screeners"] --> Discovery["Discovery + dedupe"]
+    Discovery --> OpenBB["OpenBB enrichment"]
+    OpenBB --> Scoring["Opportunity scoring"]
+    Scoring --> Top10["Top 10"]
+    Top10 --> Thesis["Thesis records"]
+    Thesis --> Reports["Research reports"]
+    Thesis --> Portfolio["Portfolio comparison"]
+    Portfolio --> Proposals["Manual rebalance proposals"]
+    Proposals --> Preview["Order preview only"]
+    Preview --> Operator["Human review"]
 ```
 
-## Rebalance Control Flow
+## Service Ports
+
+| Service | Port |
+| --- | ---: |
+| OpenBB API | 6900 |
+| OpenBB MCP | 8001 |
+| ISA Portfolio Intelligence API | 8002 |
+
+## Component Roles
+
+- Finviz: initial candidate discovery only, with polite cached HTML fetching.
+- OpenBB: local enrichment and research data layer where available.
+- Trading 212: read-only broker context and local order preview only.
+- SQLite: operational persistence for thesis and report records.
+- Artifacts: smoke outputs, cached Finviz HTML, and Markdown reports.
+- FastAPI: local API surface for workflow automation and Workspace metadata.
+
+## Safety Boundary
+
+The control flow ends at local order preview:
 
 ```mermaid
 sequenceDiagram
     participant Operator
     participant API
-    participant Strategy
-    participant Risk
-    participant OrderManager
-    participant Broker
-    Operator->>API: POST /rebalances/preview
-    API->>Strategy: Build target weights from versioned config
-    Strategy->>Risk: Apply constraints, cost model, event vetoes
-    Risk-->>API: Preview, warnings, vetoes, batch hash
-    Operator->>API: POST /live/arm
-    Operator->>API: POST /rebalances/submit
-    API->>OrderManager: Reserve idempotency key
-    OrderManager-->>API: Reject duplicate or accept
-    API->>Broker: Submit only when live armed and kill switch clear
-    Broker-->>API: Broker order ids or safe error
-    API->>Operator: Outcome and audit reference
+    participant Orchestrator
+    participant BrokerPreview
+    Operator->>API: POST /orchestrator/run
+    API->>Orchestrator: Run discovery, enrichment, scoring, thesis, reports
+    Orchestrator->>BrokerPreview: Create local order previews
+    BrokerPreview-->>API: Preview id, duplicate hash, warnings
+    API-->>Operator: Manual-review output
 ```
 
-## Recommendation and Research Gate Flow
-
-```mermaid
-flowchart TD
-    T212META["Trading 212 instrument metadata"] --> UNIVERSE["Filtered broker universe"]
-    YAML["YAML universe fallback"] --> UNIVERSE
-    HOLDINGS["Current holdings"] --> RECS["Consolidated recommendation queue"]
-    UNIVERSE --> RECS
-    EVIDENCE["Valuation, technical, catalyst, sentiment evidence"] --> RECS
-    RECS --> HANDOFF["Recommendation hand-off"]
-    HANDOFF -->|SELL or TRIM| PREVIEW["Preview-only sizing"]
-    HANDOFF -->|BUY or ADD| GATE["OpenAI deep research gate"]
-    GATE -->|REJECT or WATCH or unavailable| BLOCKED["Blocked from preview"]
-    GATE -->|RESEARCH_PASSED and not expired| PREVIEW
-    PREVIEW --> AUDIT["Audit and review artefacts"]
-```
+No API route submits a live Trading 212 order. `/rebalances/submit` returns
+404 in this build.
