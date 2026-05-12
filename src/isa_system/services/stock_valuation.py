@@ -181,9 +181,7 @@ def run_selected_stock_valuations(
         raise ValueError("Select at least one stock before running deep valuation.")
     selected_limit = max(1, app_settings.openai_deep_research_selected_stock_limit)
     if len(requested_symbols) > selected_limit:
-        raise ValueError(
-            f"Select at most {selected_limit} stock(s) for one deep valuation run."
-        )
+        raise ValueError(f"Select at most {selected_limit} stock(s) for one deep valuation run.")
 
     broker_snapshot = snapshot or load_trading212_portfolio(force_refresh=True)
     holdings_valuation = valuation or value_current_holdings(broker_snapshot)
@@ -276,9 +274,7 @@ def _run_source_pack(
         model=model_config.model,
         summary=str(parsed.get("summary") or "Source-heavy research pack completed."),
         important_facts=[str(item) for item in parsed.get("importantFacts", []) if item],
-        recent_developments=[
-            str(item) for item in parsed.get("recentDevelopments", []) if item
-        ],
+        recent_developments=[str(item) for item in parsed.get("recentDevelopments", []) if item],
         risks=[str(item) for item in parsed.get("risks", []) if item],
         sources=_sources(parsed.get("sources")),
         missing_data=[str(item) for item in parsed.get("missingData", []) if item],
@@ -508,11 +504,15 @@ def _valuation_from_payload(
     source_pack: StockSourcePack | None,
     raw_response: dict[str, Any],
 ) -> SelectedStockValuation:
-    valuation_payload = payload.get("valuation") if isinstance(payload.get("valuation"), dict) else {}
+    valuation_payload = (
+        payload.get("valuation") if isinstance(payload.get("valuation"), dict) else {}
+    )
     business_payload = (
         payload.get("businessQuality") if isinstance(payload.get("businessQuality"), dict) else {}
     )
-    scenarios_payload = payload.get("scenarios") if isinstance(payload.get("scenarios"), dict) else {}
+    scenarios_payload = (
+        payload.get("scenarios") if isinstance(payload.get("scenarios"), dict) else {}
+    )
     sources = _sources(payload.get("sources"))
     if source_pack is not None and not sources:
         sources = source_pack.sources

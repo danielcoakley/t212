@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: install lint test smoke api dashboard format migrate check-openbb discovery top10 portfolio-review
+.PHONY: install lint test smoke api format migrate check-openbb discovery top10 portfolio-review
 
 install:
 	$(PYTHON) -m pip install -U pip
@@ -19,9 +19,6 @@ smoke:
 
 api:
 	$(PYTHON) scripts/run_api.py
-
-dashboard:
-	$(PYTHON) -m streamlit run src/isa_system/dashboard/app.py
 
 format:
 	$(PYTHON) -m ruff format .

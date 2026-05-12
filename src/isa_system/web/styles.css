@@ -1654,6 +1654,10 @@ tbody tr:hover {
   margin-bottom: 14px;
 }
 
+.metric-grid.four {
+  grid-template-columns: repeat(4, 1fr);
+}
+
 .metric-card {
   padding: 10px;
   border: 1px solid #e5ebf3;
@@ -1702,6 +1706,133 @@ tbody tr:hover {
 
 .metric-line strong {
   font-variant-numeric: tabular-nums;
+}
+
+.portfolio-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(560px, 1.25fr) minmax(420px, 0.95fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.portfolio-analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(280px, 1fr);
+  gap: 18px;
+}
+
+.portfolio-analytics-grid h4,
+.valuation-result-card h4,
+.valuation-result-card h5 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.health-summary.compact {
+  grid-template-columns: 112px 1fr;
+  margin-bottom: 12px;
+}
+
+.health-summary.compact .score-ring {
+  width: 104px;
+  height: 104px;
+}
+
+.health-summary.compact .score-ring span {
+  font-size: 30px;
+}
+
+.commentary-list {
+  display: grid;
+  gap: 8px;
+}
+
+.commentary-list p {
+  margin: 0;
+  padding: 10px 11px;
+  border: 1px solid #e5ebf3;
+  border-radius: 7px;
+  background: #fbfdff;
+  color: #334155;
+}
+
+.valuation-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.toggle-row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid #e0e7f0;
+  border-radius: 7px;
+  background: #fbfdff;
+}
+
+.toggle-row input {
+  margin-top: 3px;
+}
+
+.toggle-row strong,
+.toggle-row small {
+  display: block;
+}
+
+.toggle-row small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.portfolio-table-wrap {
+  max-height: 420px;
+}
+
+.valuation-results {
+  display: grid;
+  gap: 14px;
+}
+
+.valuation-result-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.valuation-result-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.valuation-result-head p {
+  max-width: 880px;
+}
+
+.valuation-columns {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.1fr) minmax(220px, 0.9fr) minmax(220px, 0.9fr);
+  gap: 12px;
+}
+
+.valuation-columns p,
+.valuation-columns ul {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+}
+
+.valuation-columns ul {
+  padding-left: 18px;
 }
 
 .toast {
@@ -1755,7 +1886,10 @@ tbody tr:hover {
 
   .dashboard-layout,
   .lower-grid,
-  .screener-workbench {
+  .screener-workbench,
+  .portfolio-overview-grid,
+  .valuation-options,
+  .valuation-columns {
     grid-template-columns: 1fr;
   }
 

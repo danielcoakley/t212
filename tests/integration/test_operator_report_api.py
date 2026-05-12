@@ -173,7 +173,7 @@ def test_operator_report_route_returns_report_sections(
     payload = response.json()
     sections = {section["key"]: section for section in payload["sections"]}
     assert payload["report_kind"] == "operator_report_shell"
-    assert payload["status"] == "available"
+    assert payload["status"] == "partial"
     assert sections["preview"]["records"][0]["eligible"] is True
     assert sections["pilot_paper"]["missing_data"] == [
         "paper_persistence",

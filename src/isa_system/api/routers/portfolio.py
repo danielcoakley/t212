@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
-from fastapi import HTTPException
+from fastapi import APIRouter, HTTPException
 
 from isa_system.services.portfolio_analytics import (
     PortfolioAnalyticsSummary,

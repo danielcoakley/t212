@@ -3,6 +3,7 @@ const state = {
   brokerAccount: null,
   brokerPositions: [],
   portfolioSummary: null,
+  settings: null,
   openbb: null,
   latestRun: null,
   top10: [],
@@ -43,11 +44,16 @@ const state = {
   ],
   screenerSortColumn: "PEG",
   screenerSortDirection: "asc",
+  selectedDeepTickers: new Set(),
+  valuationRun: null,
+  maximumDepth: false,
+  sourceHeavy: false,
   busy: new Set(),
 };
 
 const endpoints = {
   health: "/health",
+  settings: "/settings",
   brokerAccount: "/broker/account",
   brokerPositions: "/broker/positions",
   portfolioSummary: "/portfolio/summary",
@@ -57,6 +63,7 @@ const endpoints = {
   reports: "/research/reports/latest",
   watchlist: "/thesis/watchlist",
   healthReport: "/health-check/latest",
+  deepValuation: "/portfolio/deep-valuation",
   rebalance: "/rebalance/latest",
   risks: "/workspace/risk-warnings",
   screenerSettings: "/discovery/finviz/settings",
@@ -84,6 +91,7 @@ async function fetchJson(path, options = {}) {
 async function loadAll() {
   await Promise.allSettled([
     load("health", endpoints.health),
+    load("settings", endpoints.settings),
     load("brokerAccount", endpoints.brokerAccount),
     load("brokerPositions", endpoints.brokerPositions, []),
     load("portfolioSummary", endpoints.portfolioSummary),
@@ -120,6 +128,7 @@ function render() {
   renderRisks();
   renderSystemStatus();
   renderPortfolio();
+  renderPortfolioTab();
   renderRebalance();
   renderScreener();
   renderNotes();
@@ -146,9 +155,11 @@ function renderStatusStrip() {
     : "Not checked";
   setDot("openbb-dot", openbbOk);
 
-  const healthModel = health.subsystems?.live_trading || "not_implemented";
-  $("openai-detail").textContent = "o3-deep-research";
-  setDot("openai-dot", healthModel === "not_implemented");
+  const aiModels = state.settings?.ai_models || {};
+  const healthModel = aiModels.portfolio_health_check?.model || "gpt-5.5";
+  const valuationModel = aiModels.selected_stock_valuation?.model || "gpt-5.5";
+  $("openai-detail").textContent = `Health ${healthModel} · Valuation ${valuationModel}`;
+  setDot("openai-dot", Boolean(state.settings));
   $("mode-chip").textContent = health.mode ? `${health.mode} only` : "Preview only";
 }
 
@@ -348,6 +359,141 @@ function renderPortfolio() {
   ]
     .map(
       ([label, value]) => `<div class="metric-line"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`,
+    )
+    .join("");
+}
+
+function renderPortfolioTab() {
+  const summary = state.portfolioSummary || {};
+  const account = state.brokerAccount || {};
+  const currency = summary.account_currency || account.currency || "GBP";
+  const concentration = summary.concentration || {};
+  $("portfolio-detail-total").textContent = money(summary.total_value ?? account.total_value, currency);
+  $("portfolio-detail-invested").textContent = money(summary.invested_value, currency);
+  $("portfolio-detail-cash").textContent = money(summary.available_to_trade ?? account.cash, currency);
+  $("portfolio-detail-largest").textContent = pctValue(concentration.max_position_weight);
+  $("portfolio-detail-metrics").innerHTML = [
+    ["Position count", concentration.position_count ?? portfolioRows().length],
+    ["Largest position", pctValue(concentration.max_position_weight)],
+    ["Top five weight", pctValue(concentration.top_five_weight)],
+    ["Herfindahl index", num(concentration.herfindahl_index, 3)],
+    ["Cash weight", pctValue(summary.cash_fraction)],
+    ["Unrealised P/L", money(summary.unrealised_profit_loss_total, currency)],
+  ]
+    .map(
+      ([label, value]) => `<div class="metric-line"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`,
+    )
+    .join("");
+
+  const exposure = summary.currency_exposure || [];
+  $("currency-exposure-bars").innerHTML = exposure.length
+    ? exposure
+        .map(
+          (row) => `<div class="bar-row">
+            <strong>${escapeHtml(row.currency)}</strong>
+            <div class="bar"><span style="width:${Math.min(100, (row.weight || 0) * 100)}%"></span></div>
+            <span class="number">${pctValue(row.weight)}</span>
+          </div>`,
+        )
+        .join("")
+    : `<div class="empty">No currency exposure data is available.</div>`;
+
+  renderPortfolioHealthCommentary();
+  if ($("maximum-depth-toggle")) $("maximum-depth-toggle").checked = state.maximumDepth;
+  if ($("source-heavy-toggle")) $("source-heavy-toggle").checked = state.sourceHeavy;
+  renderPortfolioHoldingsSelection();
+  renderDeepValuationResults();
+}
+
+function renderPortfolioHealthCommentary() {
+  const report = state.healthReport?.report;
+  const aiModels = state.settings?.ai_models || {};
+  const healthConfig = aiModels.portfolio_health_check || {};
+  $("portfolio-health-model").textContent = `${healthConfig.model || "gpt-5.5"} ${healthConfig.reasoning_effort || "medium"}`;
+  const score = report?.portfolio_health_score ?? null;
+  $("portfolio-health-score").textContent = score == null ? "--" : String(score);
+  $("portfolio-health-score-ring").style.background = `radial-gradient(circle at center, #fff 57%, transparent 58%), conic-gradient(var(--amber) 0deg, var(--green) ${(score || 0) * 3.6}deg, #e5eaf1 ${(score || 0) * 3.6}deg)`;
+  $("portfolio-health-summary").textContent = report?.summary || "Run a health check to generate commentary.";
+  const risks = report?.risk_scores || {};
+  $("portfolio-risk-scores").innerHTML = [
+    ["Concentration", risks.concentration],
+    ["Valuation", risks.valuation],
+    ["Balance sheet", risks.balance_sheet],
+    ["Earnings quality", risks.earnings_quality],
+    ["Dividend", risks.dividend],
+    ["Macro", risks.macro],
+  ]
+    .map(
+      ([label, value]) => `<div class="factor-row"><span>${escapeHtml(label)}</span><strong>${value == null ? "n/a" : escapeHtml(String(value))}</strong></div>`,
+    )
+    .join("");
+  const findings = report?.key_findings?.length
+    ? report.key_findings
+    : report?.portfolio_actions || [];
+  $("portfolio-key-findings").innerHTML = findings.length
+    ? findings.map((item) => `<p>${escapeHtml(item)}</p>`).join("")
+    : `<div class="empty">No portfolio health findings have been generated yet.</div>`;
+}
+
+function renderPortfolioHoldingsSelection() {
+  const rows = portfolioRows();
+  $("deep-valuation-selection-count").textContent = `${state.selectedDeepTickers.size} selected`;
+  const body = $("portfolio-holdings-body");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="6"><div class="empty">No holdings are available for selection.</div></td></tr>`;
+    return;
+  }
+  body.innerHTML = rows
+    .map((row) => {
+      const symbol = row.symbol || row.ticker || "unknown";
+      const checked = state.selectedDeepTickers.has(symbol.toUpperCase()) ? " checked" : "";
+      return `<tr>
+        <td><input type="checkbox" data-select-valuation="${escapeHtml(symbol)}"${checked} /></td>
+        <td><strong>${escapeHtml(symbol)}</strong></td>
+        <td>${escapeHtml(row.name || row.company_name || "")}</td>
+        <td class="number">${pctValue(row.weight ?? row.current_weight)}</td>
+        <td class="number">${money(row.current_value ?? row.market_value, row.currency || state.portfolioSummary?.account_currency || "GBP")}</td>
+        <td>${escapeHtml(row.currency || "")}</td>
+      </tr>`;
+    })
+    .join("");
+}
+
+function renderDeepValuationResults() {
+  const aiModels = state.settings?.ai_models || {};
+  const config = state.maximumDepth
+    ? aiModels.selected_stock_valuation_max
+    : aiModels.selected_stock_valuation;
+  $("deep-valuation-model").textContent = `${config?.model || "gpt-5.5"} ${config?.reasoning_effort || (state.maximumDepth ? "xhigh" : "high")}`;
+  const node = $("deep-valuation-results");
+  const results = state.valuationRun?.results || [];
+  if (!results.length) {
+    node.innerHTML = `<div class="empty">Select holdings and run Deep Valuation to generate stock-level analysis.</div>`;
+    return;
+  }
+  node.innerHTML = results
+    .map(
+      (row) => `<article class="valuation-result-card">
+        <div class="valuation-result-head">
+          <div>
+            <h4>${escapeHtml(row.ticker)} ${row.company_name ? `· ${escapeHtml(row.company_name)}` : ""}</h4>
+            <p>${escapeHtml(row.summary)}</p>
+          </div>
+          <span class="status-pill ${actionClass(row.rating)}">${escapeHtml(row.rating)}</span>
+        </div>
+        <div class="metric-grid four">
+          <div class="metric-card"><span>Confidence</span><strong>${escapeHtml(row.confidence)}</strong></div>
+          <div class="metric-card"><span>Business quality</span><strong>${num(row.business_quality?.score, 0)}</strong></div>
+          <div class="metric-card"><span>Valuation score</span><strong>${num(row.valuation?.score, 0)}</strong></div>
+          <div class="metric-card"><span>Fair value</span><strong>${escapeHtml(row.valuation?.fair_value_range || "n/a")}</strong></div>
+        </div>
+        <div class="valuation-columns">
+          <div><h5>Portfolio fit</h5><p>${escapeHtml(row.portfolio_fit || "Not supplied.")}</p></div>
+          <div><h5>Risks</h5>${listHtml(row.risks)}</div>
+          <div><h5>Thesis-breakers</h5>${listHtml(row.thesis_breakers)}</div>
+        </div>
+        ${row.missing_data?.length ? `<div class="manual-review">${escapeHtml(row.missing_data.join(" "))}</div>` : ""}
+      </article>`,
     )
     .join("");
 }
@@ -910,7 +1056,7 @@ function orderColumns() {
 }
 
 function showPage(page) {
-  const nextPage = page === "screener" ? "screener" : "overview";
+  const nextPage = ["overview", "portfolio", "screener"].includes(page) ? page : "overview";
   document.querySelectorAll(".view-section").forEach((section) => {
     section.hidden = section.dataset.view !== nextPage;
     section.classList.toggle("active", section.dataset.view === nextPage);
@@ -939,8 +1085,23 @@ async function runAction(action, element) {
       await post("/research/run-top10");
       toast("Top 10 research reports updated.");
     } else if (action === "run-health") {
-      await post("/health-check/run");
+      await post("/health-check/run", { detailed: false });
       toast("Holdings health report stored.");
+    } else if (action === "run-health-detailed") {
+      await post("/health-check/run", { detailed: true });
+      toast("Detailed holdings health report stored.");
+    } else if (action === "run-deep-valuation") {
+      if (!state.selectedDeepTickers.size) {
+        toast("Select at least one stock before running deep valuation.");
+        shouldReload = false;
+      } else {
+        state.valuationRun = await post(endpoints.deepValuation, {
+          symbols: [...state.selectedDeepTickers],
+          maximum_depth: state.maximumDepth,
+          source_heavy: state.sourceHeavy,
+        });
+        toast(`Deep valuation completed for ${state.valuationRun.selected_count} stock(s).`);
+      }
     } else if (action === "portfolio-review") {
       await post("/portfolio/holdings/load-broker");
       state.rebalance = await post("/portfolio/review", { cash_gbp: state.portfolioSummary?.available_to_trade || 0 });
@@ -1074,6 +1235,24 @@ function buildRiskRows() {
   return base.slice(0, 6);
 }
 
+function portfolioRows() {
+  const summaryRows = state.portfolioSummary?.top_positions || [];
+  if (summaryRows.length) return summaryRows;
+  return (state.brokerPositions || []).map((row) => ({
+    symbol: row.ticker || row.symbol,
+    name: row.name,
+    currency: row.currency,
+    quantity: row.quantity,
+    current_value: null,
+    weight: null,
+  }));
+}
+
+function listHtml(items) {
+  if (!items || !items.length) return `<div class="empty">No rows supplied.</div>`;
+  return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
 function setButtonsDisabled(disabled) {
   document.querySelectorAll("button").forEach((button) => {
     button.disabled = disabled;
@@ -1093,8 +1272,8 @@ function statusOk(value) {
 
 function actionClass(value) {
   const text = String(value || "").toUpperCase();
-  if (text.includes("BUY") || text.includes("HOLD")) return "good";
-  if (text.includes("SELL") || text.includes("TRIM") || text.includes("REVIEW")) return "warn";
+  if (text.includes("BUY") || text.includes("ADD") || text.includes("HOLD")) return "good";
+  if (text.includes("SELL") || text.includes("TRIM") || text.includes("REVIEW") || text.includes("AVOID")) return "warn";
   return "";
 }
 
@@ -1188,6 +1367,28 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  const selection = event.target.closest("[data-select-valuation]");
+  if (selection) {
+    const symbol = selection.dataset.selectValuation;
+    if (selection.checked) {
+      state.selectedDeepTickers.add(symbol.toUpperCase());
+    } else {
+      state.selectedDeepTickers.delete(symbol.toUpperCase());
+    }
+    $("deep-valuation-selection-count").textContent = `${state.selectedDeepTickers.size} selected`;
+    return;
+  }
+  const maxDepth = event.target.closest("#maximum-depth-toggle");
+  if (maxDepth) {
+    state.maximumDepth = Boolean(maxDepth.checked);
+    renderDeepValuationResults();
+    return;
+  }
+  const sourceHeavy = event.target.closest("#source-heavy-toggle");
+  if (sourceHeavy) {
+    state.sourceHeavy = Boolean(sourceHeavy.checked);
+    return;
+  }
   const presetSelect = event.target.closest("#screener-preset-select");
   if (presetSelect) {
     applyScreenerPreset();
@@ -1254,5 +1455,5 @@ document.addEventListener("input", (event) => {
 $("refresh-all-button").addEventListener("click", loadAll);
 tickClock();
 window.setInterval(tickClock, 1000);
-showPage(window.location.hash === "#screener" ? "screener" : "overview");
+showPage(window.location.hash.replace("#", "") || "overview");
 loadAll();

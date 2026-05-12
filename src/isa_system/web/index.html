@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ISA Operator Cockpit</title>
-    <link rel="stylesheet" href="/dashboard-assets/styles.css?v=20260512-screener-cleanup" />
+    <link rel="stylesheet" href="/dashboard-assets/styles.css?v=20260512-portfolio-ai" />
   </head>
   <body>
     <div class="app-shell">
@@ -18,6 +18,7 @@
         </div>
         <nav class="nav-list" id="nav-list">
           <a class="nav-item active" href="#overview" data-page="overview">Overview</a>
+          <a class="nav-item" href="#portfolio" data-page="portfolio">Portfolio</a>
           <a class="nav-item" href="#screener" data-page="screener">Screener</a>
         </nav>
         <div class="sidebar-summary">
@@ -462,11 +463,159 @@
               </div>
             </section>
           </section>
+
+          <section class="view-section" id="portfolio-page" data-view="portfolio" hidden>
+            <section class="page-heading">
+              <div>
+                <h2>Portfolio</h2>
+                <p>
+                  Detailed read-only analytics, GPT-5.5 portfolio health commentary, and
+                  selected-stock deep valuation.
+                </p>
+              </div>
+              <div class="heading-actions">
+                <button class="button ghost" data-action="run-health">Health Check</button>
+                <button class="button secondary" data-action="run-health-detailed">
+                  Detailed Health
+                </button>
+              </div>
+            </section>
+
+            <section class="portfolio-overview-grid">
+              <article class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h3>Portfolio Analytics</h3>
+                    <p>Read-only broker context, concentration, cash, and currency exposure.</p>
+                  </div>
+                  <button class="button compact ghost" data-action="load-broker-holdings">
+                    Refresh holdings
+                  </button>
+                </div>
+                <div class="metric-grid four">
+                  <div class="metric-card">
+                    <span>Total value</span>
+                    <strong id="portfolio-detail-total">n/a</strong>
+                  </div>
+                  <div class="metric-card">
+                    <span>Invested</span>
+                    <strong id="portfolio-detail-invested">n/a</strong>
+                  </div>
+                  <div class="metric-card">
+                    <span>Cash</span>
+                    <strong id="portfolio-detail-cash">n/a</strong>
+                  </div>
+                  <div class="metric-card">
+                    <span>Largest holding</span>
+                    <strong id="portfolio-detail-largest">n/a</strong>
+                  </div>
+                </div>
+                <div class="portfolio-analytics-grid">
+                  <div>
+                    <h4>Concentration</h4>
+                    <div class="metric-table" id="portfolio-detail-metrics"></div>
+                  </div>
+                  <div>
+                    <h4>Currency Exposure</h4>
+                    <div class="bar-list" id="currency-exposure-bars"></div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h3>Portfolio Health Check</h3>
+                    <p>
+                      Uses GPT-5.5 to review portfolio risk, valuation, concentration, and
+                      holdings that need attention.
+                    </p>
+                  </div>
+                  <span class="status-pill" id="portfolio-health-model">GPT-5.5</span>
+                </div>
+                <div class="health-summary compact">
+                  <div class="score-ring" id="portfolio-health-score-ring">
+                    <span id="portfolio-health-score">--</span>
+                    <small>Health score</small>
+                  </div>
+                  <div>
+                    <p id="portfolio-health-summary">Run a health check to generate commentary.</p>
+                    <div class="factor-list" id="portfolio-risk-scores"></div>
+                  </div>
+                </div>
+                <div class="commentary-list" id="portfolio-key-findings"></div>
+              </article>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Holdings Selection</h3>
+                  <p>Choose one or more stocks, then run a deeper GPT-5.5 valuation.</p>
+                </div>
+                <div class="heading-actions">
+                  <span class="count-pill" id="deep-valuation-selection-count">0 selected</span>
+                  <button class="button" data-action="run-deep-valuation">Deep Valuation</button>
+                </div>
+              </div>
+
+              <div class="valuation-options">
+                <label class="toggle-row">
+                  <input id="maximum-depth-toggle" type="checkbox" />
+                  <span>
+                    <strong>Maximum Depth</strong>
+                    <small>Uses higher reasoning effort. Slower and may cost more.</small>
+                  </span>
+                </label>
+                <label class="toggle-row">
+                  <input id="source-heavy-toggle" type="checkbox" />
+                  <span>
+                    <strong>Source-heavy Research Pack</strong>
+                    <small>
+                      Uses o3-deep-research to gather and synthesize more sources before
+                      valuation. Highest cost mode.
+                    </small>
+                  </span>
+                </label>
+              </div>
+              <div class="manual-review">
+                Deep valuation uses more API credits than a normal health check and only runs
+                for selected stocks.
+              </div>
+
+              <div class="table-wrap portfolio-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Ticker</th>
+                      <th>Name</th>
+                      <th class="number">Weight</th>
+                      <th class="number">Value</th>
+                      <th>Currency</th>
+                    </tr>
+                  </thead>
+                  <tbody id="portfolio-holdings-body"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Deep Valuation Results</h3>
+                  <p>Valuation scenarios, risks, thesis-breakers, sources, and portfolio fit.</p>
+                </div>
+                <span class="status-pill" id="deep-valuation-model">GPT-5.5 high</span>
+              </div>
+              <div id="deep-valuation-results" class="valuation-results"></div>
+            </section>
+          </section>
         </main>
       </div>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/dashboard-assets/app.js?v=20260512-screener-cleanup" type="module"></script>
+    <script src="/dashboard-assets/app.js?v=20260512-portfolio-ai" type="module"></script>
   </body>
 </html>
