@@ -1490,3 +1490,58 @@ Tests run:
 
 Integration concerns: No live trading, broker write path, or API key exposure
 was introduced.
+
+### 2026-05-12 - Portfolio Tab And AI Model Routing
+
+What changed: Removed the defunct Streamlit dashboard package and
+dashboard-specific tests from `main`, and moved the active UI forward in the
+FastAPI-served command centre. Added a Portfolio tab with read-only
+portfolio analytics, GPT-5.5 Portfolio Health Check controls, selected-stock
+Deep Valuation controls, Maximum Depth, and optional Source-heavy Research Pack
+mode. Added central OpenAI task routing in `services/ai_model_config.py` and
+rerouted portfolio health and selected-stock valuation away from
+`o3-deep-research` by default.
+
+Model routing after this slice:
+
+- `portfolio_health_check`: `gpt-5.5`, medium reasoning.
+- `portfolio_health_check_detailed`: `gpt-5.5`, high reasoning.
+- `selected_stock_valuation`: `gpt-5.5`, high reasoning.
+- `selected_stock_valuation_max`: `gpt-5.5`, xhigh reasoning.
+- `selected_stock_source_research`: `o3-deep-research` only when
+  `OPENAI_ENABLE_O3_SOURCE_RESEARCH=true` or Source-heavy mode is explicitly
+  selected.
+
+Files touched:
+
+- `.env.example`
+- `README.md`
+- `Makefile`
+- `pyproject.toml`
+- `docs/runbook.md`
+- `docs/pilot-checklist.md`
+- `docs/codex_extension_prompts.md`
+- `src/isa_system/settings.py`
+- `src/isa_system/services/ai_model_config.py`
+- `src/isa_system/services/holding_health.py`
+- `src/isa_system/services/deep_research.py`
+- `src/isa_system/services/stock_valuation.py`
+- `src/isa_system/api/routers/holding_health.py`
+- `src/isa_system/api/routers/operator.py`
+- `src/isa_system/api/routers/portfolio.py`
+- `src/isa_system/web/index.html`
+- `src/isa_system/web/app.js`
+- `src/isa_system/web/styles.css`
+- focused AI/model/UI tests
+
+Tests run:
+
+- `$env:PYTHONPATH='src'; python -m pytest -q tests` -> 174 passed.
+- `python -m ruff check .` -> passed.
+- `python -m ruff format --check src tests scripts` -> passed.
+- `node --check src/isa_system/web/app.js` -> passed.
+
+Integration concerns: Deep Valuation rejects empty selections and runs only on
+explicit selected stocks. Source-heavy mode remains the only path to
+`o3-deep-research`. No broker write path, live order submission, live arming, or
+autonomous trading path was added.
