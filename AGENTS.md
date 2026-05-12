@@ -35,6 +35,10 @@ Before significant work, read:
 - If you hit a blocker, document it and continue with another safe subtask.
 - Add or update focused tests for behaviour changes.
 - Add a concise handoff note under `docs/agent-coordination.md` when done.
+- Clean up temporary worktrees as you go. Before handoff, confirm `git
+  worktree list` only shows expected active worktrees, prune stale metadata, and
+  remove task worktrees/branches you created once their work is merged. Do not
+  delete dirty, ambiguous, or unrelated worktrees; document the blocker instead.
 
 ## Safe Defaults
 
