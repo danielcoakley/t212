@@ -61,25 +61,19 @@ python scripts/run_api.py
 Invoke-RestMethod http://127.0.0.1:8002/health
 ```
 
-Start the dashboard in another terminal:
-
-```powershell
-python -m streamlit run src/isa_system/dashboard/app.py
-```
-
-Then open the Streamlit URL printed by the command, usually
-`http://localhost:8501`. Begin on Overview, then use Management to confirm
-runtime mode, broker status, provider gaps, cache freshness, and live guardrails.
+Then open the command centre at `http://127.0.0.1:8002/`. The old Streamlit
+dashboard is no longer part of `main`; the FastAPI-served command centre is the
+supported local UI.
 
 Expected first-run state:
 
 - `ISA_RUNTIME_MODE=preview` and the API control plane starts disarmed.
 - No Trading 212 credentials means the dashboard shows synthetic or empty local
   context with a broker setup warning.
-- No `OPENAI_API_KEY` means deep research is unavailable, so buy/add rows cannot
-  receive the `RESEARCH_PASSED` gate needed for preview approval.
-- Health Check still runs without `OPENAI_API_KEY`, but it uses conservative
-  local fallback targets instead of the configured OpenAI deep research model.
+- No `OPENAI_API_KEY` means model-backed research is unavailable, so buy/add rows
+  cannot receive the `RESEARCH_PASSED` gate needed for preview approval.
+- Portfolio Health Check still runs without `OPENAI_API_KEY`, but it uses
+  conservative local fallback output instead of GPT-5.5.
 - Recommendation and preview pages are review-only. They do not submit orders.
 
 ## Configuration
@@ -98,10 +92,23 @@ agent prompts.
 | Provider | Variables | When to configure | First-run impact if blank |
 | --- | --- | --- | --- |
 | Trading 212 | `TRADING212_API_KEY`, `TRADING212_API_SECRET`, `TRADING212_ENVIRONMENT` | Configure for read-only account summary, positions, active orders, and broker universe context. Use `demo` first; use `live` only when the operator intentionally wants live account context. | Dashboard remains safe with `not_configured` broker status. |
-| OpenAI | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_HEALTH_MODEL` | Configure when the pilot needs the deep research gate for buy/add candidates or on-demand holdings health reports. `OPENAI_HEALTH_MODEL` defaults to `o3-deep-research`. | Buy/add preview approval remains blocked because no non-expired `RESEARCH_PASSED` review can be produced. Health Check falls back to local scenario targets. |
+| OpenAI | `OPENAI_API_KEY`, health/valuation model variables below | Configure when the pilot needs the deep research gate, Portfolio Health Check, selected-stock Deep Valuation, or optional source-heavy research packs. | Buy/add preview approval remains blocked without a non-expired `RESEARCH_PASSED` review. Health and valuation workflows fall back conservatively or surface missing data. |
 | Alpha Vantage, FMP, FRED | `ALPHA_VANTAGE_API_KEY`, `FMP_API_KEY`, `FRED_API_KEY` | Optional convenience enrichment for prices, fundamentals, and macro context. | The app uses local fallbacks or empty provider results where safe. |
 | Companies House, SEC EDGAR | `COMPANIES_HOUSE_API_KEY`, `SEC_USER_AGENT` | Optional official-source identity and filing context. SEC asks automated clients to identify themselves. | Official-source coverage stays partial. |
 | Sentiment overlays | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `X_BEARER_TOKEN` | Optional, low-weight sentiment enrichment. | Sentiment stays disabled and must not block the local cockpit. |
+
+Default OpenAI model routing:
+
+| Task | Default model | Reasoning | Notes |
+| --- | --- | --- | --- |
+| Portfolio Health Check | `OPENAI_HEALTH_CHECK_MODEL=gpt-5.5` | `OPENAI_HEALTH_CHECK_REASONING_EFFORT=medium` | Does not use `o3-deep-research`. |
+| Detailed Health Check | `OPENAI_HEALTH_CHECK_MODEL=gpt-5.5` | `OPENAI_HEALTH_CHECK_DETAILED_REASONING_EFFORT=high` | Operator-triggered from Portfolio. |
+| Selected-stock Deep Valuation | `OPENAI_STOCK_VALUATION_MODEL=gpt-5.5` | `OPENAI_STOCK_VALUATION_REASONING_EFFORT=high` | Runs only for selected stocks. |
+| Maximum-depth valuation | `OPENAI_STOCK_VALUATION_MODEL=gpt-5.5` | `OPENAI_STOCK_VALUATION_MAX_REASONING_EFFORT=xhigh` | Slower and may cost more. |
+| Source-heavy research pack | `OPENAI_SOURCE_RESEARCH_MODEL=o3-deep-research` | n/a | Disabled unless `OPENAI_ENABLE_O3_SOURCE_RESEARCH=true` or selected in the UI. |
+
+`OPENAI_STOCK_VALUATION_MODEL` can be set to `gpt-5.5-pro` manually if the
+account supports it; that is not the hard-coded default.
 
 Trading 212 credentials are used by the current dashboard for read-only GET
 context. Setting `TRADING212_ENVIRONMENT=live` allows live account reads, but it

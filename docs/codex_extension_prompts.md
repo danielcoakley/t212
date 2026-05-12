@@ -29,5 +29,7 @@ blocked unless armed."
 
 ## Expand the Dashboard
 
-"Add a Streamlit page function under `dashboard/pages`, display UTC data
-in Europe/London, and keep warnings and vetoes visible."
+"Extend the FastAPI-served command centre under `src/isa_system/web`, add or
+reuse typed API routes under `api/routers`, display UTC data in Europe/London
+where applicable, and keep warnings and vetoes visible. The old Streamlit
+dashboard is unused on `main`."

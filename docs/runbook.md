@@ -11,6 +11,9 @@ python scripts/run_api.py
 Invoke-RestMethod http://127.0.0.1:8002/health
 ```
 
+Open the local command centre at `http://127.0.0.1:8002/`. The Streamlit
+dashboard is unused on `main`.
+
 ## Daily Run
 
 Use the deterministic offline smoke path first:
@@ -59,15 +62,30 @@ Inspect:
 
 ## Holdings Health Check
 
-Use the dashboard Health Check page or the API to produce an on-demand report
-for current holdings. With `OPENAI_API_KEY` configured, the report uses
-`OPENAI_HEALTH_MODEL` for research. Without a key, it stores a conservative
-local fallback report so history, acceptance, and tests still work offline.
+Use the Portfolio tab or the API to produce an on-demand report for current
+holdings. With `OPENAI_API_KEY` configured, the report uses
+`OPENAI_HEALTH_CHECK_MODEL` (`gpt-5.5` by default) with medium reasoning, or
+high reasoning for detailed mode. It does not use `o3-deep-research`. Without a
+key, it stores a conservative local fallback report so history, acceptance, and
+tests still work offline.
 
 The report includes bear, base, and bull price targets plus a review-only
 recommended action per holding. The operator can accept the generated targets,
 adjust them, and carry forward the chosen action. These updates are stored in
 history and do not create broker order authority.
+
+## Selected-Stock Deep Valuation
+
+Use the Portfolio tab to select one or more holdings, then run Deep Valuation.
+The default model is `OPENAI_STOCK_VALUATION_MODEL=gpt-5.5` with high
+reasoning. Maximum Depth uses `OPENAI_STOCK_VALUATION_MAX_REASONING_EFFORT=xhigh`.
+The optional Source-heavy Research Pack uses
+`OPENAI_SOURCE_RESEARCH_MODEL=o3-deep-research` only when explicitly selected
+or when `OPENAI_ENABLE_O3_SOURCE_RESEARCH=true`.
+
+The API endpoint is `POST /portfolio/deep-valuation` with `symbols`,
+`maximum_depth`, and `source_heavy`. Empty selections are rejected before any
+model call.
 
 ## Common Checks
 

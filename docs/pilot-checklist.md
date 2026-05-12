@@ -16,11 +16,12 @@ collect evidence before any future micro-live discussion.
 ## 2. Safe Startup
 
 - Start the FastAPI control plane on `127.0.0.1`.
-- Start the Streamlit dashboard locally.
+- Open the command centre at `http://127.0.0.1:8002/`.
 - Confirm `ISA_RUNTIME_MODE=preview`.
 - Confirm live arming is false.
 - Confirm the kill switch is clear or intentionally enabled.
-- Open the Management page and review provider/configuration gaps.
+- Review provider/configuration gaps from the command centre and API health
+  endpoints. The old Streamlit dashboard is unused on `main`.
 
 ## 3. Provider Readiness
 
@@ -30,7 +31,9 @@ collect evidence before any future micro-live discussion.
 - Use `TRADING212_ENVIRONMENT=live` only when intentionally reading live account
   state.
 - Configure `OPENAI_API_KEY` only when the pilot needs buy/add deep research
-  reviews.
+  reviews, Portfolio Health Check, or selected-stock Deep Valuation.
+- Keep `OPENAI_ENABLE_O3_SOURCE_RESEARCH=false` unless an explicit
+  source-heavy selected-stock research pack is needed.
 - Leave optional convenience providers blank until a pilot needs their data.
 
 ## 4. Recommendation Review
