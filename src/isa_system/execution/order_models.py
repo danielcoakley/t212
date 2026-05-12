@@ -20,6 +20,7 @@ class OrderIntent(BaseModel):
     order_type: OrderType = OrderType.LIMIT
     quantity: Decimal = Field(gt=Decimal("0"))
     limit_price: Decimal | None = None
+    stop_price: Decimal | None = None
     time_validity: str = "DAY"
 
 

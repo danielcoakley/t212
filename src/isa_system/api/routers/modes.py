@@ -43,3 +43,29 @@ def disarm_live(state: ControlState = Depends(get_state)) -> dict[str, str]:
 
     state.live_armed = False
     return {"mode": state.mode.value, "live_armed": "false"}
+
+
+@router.post("/control/pause")
+def pause_all_trading(state: ControlState = Depends(get_state)) -> dict[str, str]:
+    """Enable the local kill switch and disarm live trading."""
+
+    state.kill_switch_enabled = True
+    state.live_armed = False
+    return {
+        "mode": state.mode.value,
+        "live_armed": "false",
+        "kill_switch_enabled": "true",
+    }
+
+
+@router.post("/control/resume")
+def resume_trading(state: ControlState = Depends(get_state)) -> dict[str, str]:
+    """Disable the local kill switch without arming live trading."""
+
+    state.kill_switch_enabled = False
+    state.live_armed = False
+    return {
+        "mode": state.mode.value,
+        "live_armed": "false",
+        "kill_switch_enabled": "false",
+    }

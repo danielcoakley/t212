@@ -1,0 +1,3 @@
+[submodule "vendor/OpenBB"]
+	path = vendor/OpenBB
+	url = https://github.com/OpenBB-finance/OpenBB.git

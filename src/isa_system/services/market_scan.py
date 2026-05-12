@@ -12,9 +12,10 @@ from pydantic import BaseModel, Field
 
 from isa_system.data.providers.base import ProviderNotConfigured
 from isa_system.data.providers.trading212 import Trading212Instrument
+from isa_system.openbb_adapter import IsaOpenBBClient, OpenBBAdapterError
 from isa_system.services.instrument_validation import load_trading212_instruments
 from isa_system.services.recommendations import DEFAULT_MARKET_CANDIDATES
-from isa_system.settings import Settings
+from isa_system.settings import Settings, get_settings
 
 DEFAULT_UNIVERSE_CONFIG_PATH = Path("configs/universe.example.yaml")
 DEFAULT_BROKER_SCAN_LIMIT = 250
@@ -150,6 +151,64 @@ def load_broker_market_scan_universe(
     )
 
 
+def load_odp_market_scan_universe(
+    path: Path | None = None,
+    *,
+    settings: Settings | None = None,
+    max_symbols: int = DEFAULT_DISPLAY_LIMIT,
+) -> MarketScanUniverse:
+    """Load a broad market-scan universe from ODP's equity screener."""
+
+    app_settings = settings or get_settings()
+    config_path = path or DEFAULT_UNIVERSE_CONFIG_PATH
+    payload, config_warnings = _load_config_payload(config_path)
+    block_tickers = {symbol.upper() for symbol in _normalise_symbols(payload.get("block_tickers"))}
+    try:
+        rows = IsaOpenBBClient(settings=app_settings).equity_screener(
+            provider=app_settings.openbb_screener_provider,
+            country=app_settings.openbb_screener_country,
+            exchange=app_settings.openbb_screener_exchange,
+            mktcap_min=app_settings.openbb_screener_market_cap_min,
+            volume_min=app_settings.openbb_screener_volume_min,
+            limit=max_symbols,
+        )
+    except OpenBBAdapterError as exc:
+        fallback = load_broker_market_scan_universe(
+            config_path,
+            settings=app_settings,
+            max_symbols=max_symbols,
+        )
+        fallback.warnings.append(
+            f"ODP screener unavailable ({exc}); using Trading 212/YAML fallback."
+        )
+        return fallback
+
+    symbols = _symbols_from_odp_rows(rows, block_tickers=block_tickers)
+    if not symbols:
+        fallback = load_broker_market_scan_universe(
+            config_path,
+            settings=app_settings,
+            max_symbols=max_symbols,
+        )
+        fallback.warnings.append(
+            "ODP screener returned no symbols; using Trading 212/YAML fallback."
+        )
+        return fallback
+    return MarketScanUniverse(
+        name="openbb_odp_screener",
+        source_path="openbb-odp:/api/v1/equity/screener",
+        symbols=symbols[:max_symbols],
+        blocked_symbols=sorted(block_tickers),
+        warnings=[
+            *config_warnings,
+            (
+                "Candidate universe is sourced from ODP screener and still validated "
+                "against Trading 212 before any preview."
+            ),
+        ],
+    )
+
+
 def _normalise_symbols(value: Any) -> list[str]:
     if not value:
         return []
@@ -264,3 +323,18 @@ def _instrument_country(instrument: Trading212Instrument) -> str:
 
 def _upper_set(values: Sequence[str]) -> set[str]:
     return {value.upper() for value in values}
+
+
+def _symbols_from_odp_rows(
+    rows: Sequence[dict[str, Any]], *, block_tickers: set[str]
+) -> list[str]:
+    symbols: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        symbol = str(row.get("symbol") or row.get("ticker") or "").strip()
+        key = symbol.upper()
+        if not symbol or key in seen or key in block_tickers:
+            continue
+        symbols.append(symbol)
+        seen.add(key)
+    return symbols

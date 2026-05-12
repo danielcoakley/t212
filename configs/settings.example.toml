@@ -13,6 +13,11 @@ raw_cache_path = "data_lake/raw"
 [database]
 dsn = "sqlite:///./artifacts/isa_system.sqlite3"
 
+[openbb]
+vendor_path = "vendor/OpenBB"
+lock_path = "configs/openbb.lock.json"
+default_provider = "yfinance"
+
 [logging]
 level = "INFO"
 json = true

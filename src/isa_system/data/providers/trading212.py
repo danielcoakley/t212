@@ -12,8 +12,10 @@ route and payload contract exist.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
+from time import monotonic, sleep, time
 from typing import Any, Literal
 
 import httpx
@@ -35,6 +37,7 @@ class Trading212Settings(BaseModel):
     demo_base_url: str = "https://demo.trading212.com/api/v0"
     live_base_url: str = "https://live.trading212.com/api/v0"
     timeout_seconds: float = 20.0
+    respect_rate_limits: bool = True
 
     @property
     def base_url(self) -> str:
@@ -59,8 +62,20 @@ class Trading212Instrument(BaseModel):
     isin: str | None = None
     currency_code: str | None = Field(default=None, alias="currencyCode")
     type: str | None = None
+    max_open_quantity: float | None = Field(default=None, alias="maxOpenQuantity")
+    short_name: str | None = Field(default=None, alias="shortName")
     working_schedule_id: int | None = Field(default=None, alias="workingScheduleId")
     extended_hours: bool | None = Field(default=None, alias="extendedHours")
+
+
+class Trading212Exchange(BaseModel):
+    """Exchange metadata response subset."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    name: str | None = None
+    working_schedules: list[dict[str, Any]] = Field(default_factory=list, alias="workingSchedules")
 
 
 class Trading212AccountSummary(BaseModel):
@@ -99,6 +114,16 @@ class Trading212OrderResponse(BaseModel):
     quantity: float | None = None
 
 
+class Trading212Report(BaseModel):
+    """CSV report response subset."""
+
+    model_config = ConfigDict(extra="allow")
+
+    report_id: int | None = Field(default=None, alias="reportId")
+    status: str | None = None
+    download_link: str | None = Field(default=None, alias="downloadLink")
+
+
 class LocalPreview(BaseModel):
     """Local preview result when no broker preview endpoint is documented."""
 
@@ -113,10 +138,34 @@ class LocalPreview(BaseModel):
 class Trading212Client:
     """Thin documented Trading 212 HTTP client."""
 
+    ENDPOINT_RATE_LIMITS: dict[tuple[str, str], tuple[int, int]] = {
+        ("GET", "/equity/account/summary"): (1, 5),
+        ("GET", "/equity/history/dividends"): (6, 60),
+        ("GET", "/equity/history/exports"): (1, 60),
+        ("POST", "/equity/history/exports"): (1, 30),
+        ("GET", "/equity/history/orders"): (6, 60),
+        ("GET", "/equity/history/transactions"): (6, 60),
+        ("GET", "/equity/metadata/exchanges"): (1, 30),
+        ("GET", "/equity/metadata/instruments"): (1, 50),
+        ("GET", "/equity/orders"): (1, 5),
+        ("DELETE", "/equity/orders/{id}"): (50, 60),
+        ("GET", "/equity/orders/{id}"): (1, 1),
+        ("POST", "/equity/orders/limit"): (1, 2),
+        ("POST", "/equity/orders/market"): (50, 60),
+        ("POST", "/equity/orders/stop"): (1, 2),
+        ("POST", "/equity/orders/stop_limit"): (1, 2),
+        ("GET", "/equity/positions"): (1, 1),
+    }
+
     def __init__(
-        self, settings: Trading212Settings, transport: httpx.BaseTransport | None = None
+        self,
+        settings: Trading212Settings,
+        transport: httpx.BaseTransport | None = None,
+        sleep_func: Callable[[float], None] = sleep,
     ) -> None:
         self.settings = settings
+        self._sleep = sleep_func
+        self._last_request_at: dict[tuple[str, str], float] = {}
         self._client = httpx.Client(
             base_url=settings.base_url,
             timeout=settings.timeout_seconds,
@@ -127,9 +176,49 @@ class Trading212Client:
     def _request(self, method: str, path: str, *, json: dict[str, Any] | None = None) -> Any:
         if not self.settings.configured:
             raise ProviderNotConfigured("Trading 212 credentials are not configured.")
+        endpoint_key = self._endpoint_key(method, path)
+        self._throttle(endpoint_key)
         response = self._client.request(method, path, json=json)
+        if response.status_code == 429 and method.upper() == "GET":
+            self._sleep(_retry_after_seconds(response))
+            response = self._client.request(method, path, json=json)
         response.raise_for_status()
-        return response.json()
+        return response.json() if response.content else None
+
+    def _throttle(self, endpoint_key: tuple[str, str]) -> None:
+        """Apply simple local pacing for documented Trading 212 rate limits."""
+
+        if not self.settings.respect_rate_limits:
+            return
+        limit = self.ENDPOINT_RATE_LIMITS.get(endpoint_key)
+        if not limit:
+            return
+        requests, period = limit
+        min_interval = period / requests
+        last = self._last_request_at.get(endpoint_key)
+        current = monotonic()
+        if last is not None:
+            wait_for = min_interval - (current - last)
+            if wait_for > 0:
+                self._sleep(wait_for)
+        self._last_request_at[endpoint_key] = monotonic()
+
+    def _endpoint_key(self, method: str, path: str) -> tuple[str, str]:
+        """Map a request path to its documented rate-limit key."""
+
+        method_key = method.upper()
+        clean_path = path.split("?", 1)[0]
+        if clean_path.startswith("/api/v0"):
+            clean_path = clean_path.removeprefix("/api/v0")
+        order_leaf = clean_path.rsplit("/", 1)[-1]
+        order_actions = {"limit", "market", "stop", "stop_limit"}
+        if (
+            clean_path.startswith("/equity/orders/")
+            and clean_path.count("/") == 3
+            and order_leaf not in order_actions
+        ):
+            return (method_key, "/equity/orders/{id}")
+        return (method_key, clean_path)
 
     def account_summary(self) -> Trading212AccountSummary:
         """Fetch `/equity/account/summary`."""
@@ -143,6 +232,12 @@ class Trading212Client:
 
         payload = self._request("GET", "/equity/metadata/instruments")
         return [Trading212Instrument.model_validate(item) for item in payload]
+
+    def exchanges(self) -> list[Trading212Exchange]:
+        """Fetch documented exchange and working schedule metadata."""
+
+        payload = self._request("GET", "/equity/metadata/exchanges")
+        return [Trading212Exchange.model_validate(item) for item in payload]
 
     def positions(self) -> list[Trading212Position]:
         """Fetch documented open positions."""
@@ -163,10 +258,83 @@ class Trading212Client:
             self._request("GET", f"/equity/orders/{order_id}")
         )
 
-    def history_orders(self, limit: int = 50) -> dict[str, Any]:
+    def cancel_order(self, order_id: int) -> None:
+        """Cancel a documented pending order."""
+
+        self._request("DELETE", f"/equity/orders/{order_id}")
+
+    def history_orders(self, limit: int = 50) -> list[dict[str, Any]]:
         """Fetch documented historical orders with cursor pagination support."""
 
-        return self._request("GET", f"/equity/history/orders?limit={min(limit, 50)}")
+        return self._paginate(f"/equity/history/orders?limit={min(limit, 50)}")
+
+    def history_dividends(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Fetch documented dividend history with cursor pagination support."""
+
+        return self._paginate(f"/equity/history/dividends?limit={min(limit, 50)}")
+
+    def history_transactions(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Fetch documented transaction history with cursor pagination support."""
+
+        return self._paginate(f"/equity/history/transactions?limit={min(limit, 50)}")
+
+    def list_exports(self) -> list[Trading212Report]:
+        """List generated CSV reports."""
+
+        payload = self._request("GET", "/equity/history/exports")
+        if isinstance(payload, dict) and "items" in payload:
+            payload = payload["items"]
+        return [Trading212Report.model_validate(item) for item in payload or []]
+
+    def request_export(
+        self,
+        *,
+        time_from: str,
+        time_to: str,
+        include_orders: bool = True,
+        include_dividends: bool = True,
+        include_transactions: bool = True,
+        include_interest: bool = True,
+    ) -> int:
+        """Request a CSV export and return the report id."""
+
+        payload = {
+            "timeFrom": time_from,
+            "timeTo": time_to,
+            "dataIncluded": {
+                "includeOrders": include_orders,
+                "includeDividends": include_dividends,
+                "includeTransactions": include_transactions,
+                "includeInterest": include_interest,
+            },
+        }
+        response = self._request("POST", "/equity/history/exports", json=payload)
+        report_id = response.get("reportId") if isinstance(response, dict) else None
+        if report_id is None:
+            raise ValueError("Trading 212 export response did not include reportId.")
+        return int(report_id)
+
+    def download_report(self, report: Trading212Report) -> bytes:
+        """Download a finished CSV report from its broker-provided URL."""
+
+        if not report.download_link:
+            raise ValueError("Report has no download link.")
+        response = self._client.get(report.download_link)
+        response.raise_for_status()
+        return response.content
+
+    def _paginate(self, first_path: str) -> list[dict[str, Any]]:
+        """Collect all items from a documented cursor-paginated endpoint."""
+
+        items: list[dict[str, Any]] = []
+        next_path: str | None = first_path
+        while next_path:
+            payload = self._request("GET", next_path)
+            if not isinstance(payload, dict):
+                raise ValueError("Paginated Trading 212 response was not an object.")
+            items.extend(payload.get("items") or [])
+            next_path = payload.get("nextPagePath")
+        return items
 
     def submit_order(self, intent: OrderIntent) -> Trading212OrderResponse:
         """Submit a market or limit order using documented endpoint shapes.
@@ -192,9 +360,30 @@ class Trading212Client:
                 "timeValidity": intent.time_validity,
             }
             endpoint = "/equity/orders/limit"
+        elif intent.order_type == OrderType.STOP:
+            if intent.stop_price is None:
+                raise ValueError("Stop orders require a stop price.")
+            payload = {
+                "ticker": intent.broker_ticker,
+                "quantity": float(_signed_quantity(intent.side, intent.quantity)),
+                "stopPrice": float(intent.stop_price),
+                "timeValidity": intent.time_validity,
+            }
+            endpoint = "/equity/orders/stop"
+        elif intent.order_type == OrderType.STOP_LIMIT:
+            if intent.stop_price is None or intent.limit_price is None:
+                raise ValueError("Stop-limit orders require stop and limit prices.")
+            payload = {
+                "ticker": intent.broker_ticker,
+                "quantity": float(_signed_quantity(intent.side, intent.quantity)),
+                "stopPrice": float(intent.stop_price),
+                "limitPrice": float(intent.limit_price),
+                "timeValidity": intent.time_validity,
+            }
+            endpoint = "/equity/orders/stop_limit"
         else:
             raise NotImplementedError(
-                "Only documented market and limit order submission is enabled in v1."
+                f"Unsupported order type: {intent.order_type}"
             )
         return Trading212OrderResponse.model_validate(self._request("POST", endpoint, json=payload))
 
@@ -245,3 +434,15 @@ def _signed_quantity(side: OrderSide, quantity: Decimal) -> Decimal:
     """Trading 212 uses negative quantity for sell orders."""
 
     return quantity if side == OrderSide.BUY else -quantity
+
+
+def _retry_after_seconds(response: httpx.Response) -> float:
+    """Return a conservative retry delay from rate-limit headers."""
+
+    reset = response.headers.get("x-ratelimit-reset")
+    if reset:
+        try:
+            return max(0.25, float(reset) - time())
+        except ValueError:
+            pass
+    return 1.0

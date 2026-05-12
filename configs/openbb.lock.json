@@ -1,0 +1,7 @@
+{
+  "remote": "https://github.com/OpenBB-finance/OpenBB.git",
+  "path": "vendor/OpenBB",
+  "revision": "6a23408dd96d2bde5da04f757dbcbd16c11efc21",
+  "updated_at_utc": "2026-05-11T00:00:00Z",
+  "notes": "Pinned OpenBB upstream revision used by the ISA app compatibility tests."
+}

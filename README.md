@@ -30,12 +30,17 @@ python -m uvicorn isa_system.api.main:app --host 127.0.0.1 --port 8000
 Invoke-RestMethod http://127.0.0.1:8000/health
 ```
 
+<<<<<<< Updated upstream
 Start the dashboard in another terminal:
+=======
+Start the Streamlit dashboard:
+>>>>>>> Stashed changes
 
 ```powershell
 python -m streamlit run src/isa_system/dashboard/app.py
 ```
 
+<<<<<<< Updated upstream
 Then open the Streamlit URL printed by the command, usually
 `http://localhost:8501`. Begin on Overview, then use Management to confirm
 runtime mode, broker status, provider gaps, cache freshness, and live guardrails.
@@ -48,6 +53,15 @@ Expected first-run state:
 - No `OPENAI_API_KEY` means deep research is unavailable, so buy/add rows cannot
   receive the `RESEARCH_PASSED` gate needed for preview approval.
 - Recommendation and preview pages are review-only. They do not submit orders.
+=======
+Start the React dashboard:
+
+```powershell
+cd apps/web
+npm install
+npm run dev
+```
+>>>>>>> Stashed changes
 
 ## Configuration
 
@@ -98,6 +112,11 @@ Trading 212 is treated as the execution and reconciliation source. yfinance,
 Alpha Vantage, and FMP are convenience feeds for research and enrichment.
 SEC EDGAR, Companies House, LSE RNS, and FCA NSM are treated as official
 filing or event validation layers where practical.
+
+OpenBB is kept as an updateable upstream checkout under `vendor/OpenBB`.
+App code must call it only through `isa_system.openbb_adapter`. To update
+OpenBB, run `scripts/update_openbb.ps1`, then keep the updated
+`configs/openbb.lock.json` only after compatibility tests pass.
 
 See `docs/` for runbooks, data-source caveats, ISA notes, roadmap, and
 extension prompts.

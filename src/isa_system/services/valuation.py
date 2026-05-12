@@ -7,9 +7,12 @@ from datetime import UTC, datetime
 from math import isfinite
 from typing import Any, Protocol
 
+import pandas as pd
 from pydantic import BaseModel, Field
 
+from isa_system.openbb_adapter import IsaOpenBBClient, OpenBBAdapterError
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot, BrokerPosition
+from isa_system.settings import Settings, get_settings
 from isa_system.utils.time import now_utc, require_utc
 
 
@@ -78,6 +81,7 @@ class HoldingValuationData(BaseModel):
     retrieved_at_utc: datetime
     daily_adjusted_closes: list[DailyAdjustedClose] = Field(default_factory=list)
     valuation: ValuationMetrics = Field(default_factory=ValuationMetrics)
+    technicals: TechnicalIndicators | None = None
     upcoming_events: list[UpcomingEvent] = Field(default_factory=list)
     news: list[NewsItem] = Field(default_factory=list)
     sentiment: SentimentSnapshot | None = None
@@ -210,6 +214,139 @@ class YFinanceValuationProvider:
         return rows
 
 
+class ODPScreenerValuationProvider:
+    """ODP screener-backed provider for broad candidate valuation."""
+
+    name = "openbb-odp-screener"
+
+    def __init__(
+        self,
+        *,
+        settings: Settings | None = None,
+        client: IsaOpenBBClient | None = None,
+        screener_rows: Sequence[Mapping[str, Any]] | None = None,
+    ) -> None:
+        self._settings = settings
+        self._client = client
+        self._screener_rows = [dict(row) for row in screener_rows] if screener_rows else None
+
+    @property
+    def settings(self) -> Settings:
+        if self._settings is None:
+            self._settings = get_settings()
+        return self._settings
+
+    @property
+    def client(self) -> IsaOpenBBClient:
+        if self._client is None:
+            self._client = IsaOpenBBClient(settings=self.settings)
+        return self._client
+
+    def get_many(self, symbols: Sequence[str]) -> Mapping[str, HoldingValuationData]:
+        """Return valuation data from ODP screener rows, with ODP detail fallback."""
+
+        symbols_by_key = {symbol.upper(): symbol for symbol in symbols}
+        rows = self._rows_for_symbols(symbols)
+        rows_by_key = {
+            str(row.get("symbol") or row.get("ticker") or "").upper(): row for row in rows
+        }
+        data: dict[str, HoldingValuationData] = {}
+        for key, requested_symbol in symbols_by_key.items():
+            row = rows_by_key.get(key)
+            if row is not None:
+                data[requested_symbol] = _odp_screener_row_to_data(requested_symbol, row)
+                continue
+            data[requested_symbol] = self._detail_fallback(requested_symbol)
+        return data
+
+    def _rows_for_symbols(self, symbols: Sequence[str]) -> Sequence[Mapping[str, Any]]:
+        if self._screener_rows is not None:
+            return self._screener_rows
+        limit = max(len(symbols) * 2, 50)
+        try:
+            return self.client.equity_screener(
+                provider=self.settings.openbb_screener_provider,
+                country=self.settings.openbb_screener_country,
+                exchange=self.settings.openbb_screener_exchange,
+                mktcap_min=self.settings.openbb_screener_market_cap_min,
+                volume_min=self.settings.openbb_screener_volume_min,
+                limit=limit,
+            )
+        except OpenBBAdapterError:
+            return []
+
+    def _detail_fallback(self, symbol: str) -> HoldingValuationData:
+        warnings: list[str] = []
+        valuation = ValuationMetrics()
+        closes: list[DailyAdjustedClose] = []
+        retrieved_at = now_utc()
+        try:
+            fundamentals = self.client.equity_fundamentals(
+                [symbol], provider=self.settings.openbb_default_provider
+            )
+            if not fundamentals.empty:
+                valuation = _valuation_from_mapping(fundamentals.iloc[0].to_dict())
+        except OpenBBAdapterError as exc:
+            warnings.append(f"ODP fundamentals unavailable for {symbol}: {exc}")
+        try:
+            prices = self.client.equity_daily_prices(
+                [symbol], provider=self.settings.openbb_default_provider
+            )
+            closes = [
+                DailyAdjustedClose(
+                    ts_utc=require_utc(row["ts_utc"].to_pydatetime()),
+                    adj_close=float(row["adj_close"]),
+                )
+                for _, row in prices.iterrows()
+                if pd.notna(row.get("adj_close"))
+            ]
+        except OpenBBAdapterError as exc:
+            warnings.append(f"ODP price history unavailable for {symbol}: {exc}")
+        if not closes and valuation == ValuationMetrics():
+            warnings.append(f"No ODP screener row for {symbol}.")
+        return HoldingValuationData(
+            symbol=symbol,
+            retrieved_at_utc=retrieved_at,
+            daily_adjusted_closes=closes,
+            valuation=valuation,
+            warnings=warnings,
+        )
+
+
+def _odp_screener_row_to_data(symbol: str, row: Mapping[str, Any]) -> HoldingValuationData:
+    """Convert one ODP screener row into recommendation valuation inputs."""
+
+    return HoldingValuationData(
+        symbol=symbol,
+        retrieved_at_utc=now_utc(),
+        valuation=_valuation_from_mapping(row),
+        technicals=TechnicalIndicators(
+            sma50=_float_or_none(row.get("ma50") or row.get("sma50")),
+            sma200=_float_or_none(row.get("ma200") or row.get("sma200")),
+        ),
+    )
+
+
+def _valuation_from_mapping(row: Mapping[str, Any]) -> ValuationMetrics:
+    """Map common ODP screener/fundamental field names into local valuation metrics."""
+
+    return ValuationMetrics(
+        trailing_pe=_float_or_none(
+            row.get("pe_ratio")
+            or row.get("price_to_earnings")
+            or row.get("trailing_pe")
+            or row.get("trailingPE")
+        ),
+        forward_pe=_float_or_none(
+            row.get("pe_forward") or row.get("forward_pe") or row.get("forwardPE")
+        ),
+        price_to_book=_float_or_none(row.get("price_to_book") or row.get("priceToBook")),
+        dividend_yield=_normalise_dividend_yield(row.get("dividend_yield")),
+        market_cap=_float_or_none(row.get("market_cap") or row.get("marketCap")),
+        beta=_float_or_none(row.get("beta")),
+    )
+
+
 def value_current_holdings(
     snapshot: BrokerPortfolioSnapshot, provider: ValuationProvider | None = None
 ) -> HoldingsValuationResponse:
@@ -308,7 +445,7 @@ def _value_position(
         data = _empty_provider_data(research_symbol)
     valuation_warnings = _missing_valuation_warnings(research_symbol, data.valuation)
     warnings.extend(valuation_warnings)
-    technicals = calculate_technicals(data.daily_adjusted_closes, warnings)
+    technicals = data.technicals or calculate_technicals(data.daily_adjusted_closes, warnings)
 
     return HoldingValuation(
         symbol=position.symbol,

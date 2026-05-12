@@ -57,6 +57,62 @@ class Settings(BaseSettings):
         default=DEFAULT_SQLITE_DSN,
         validation_alias=AliasChoices("ISA_OPERATIONAL_DB_DSN", "OPERATIONAL_DB_DSN"),
     )
+    openbb_vendor_path: Path = Field(
+        default=Path("vendor/OpenBB"),
+        validation_alias=AliasChoices("ISA_OPENBB_VENDOR_PATH", "OPENBB_VENDOR_PATH"),
+    )
+    openbb_lock_path: Path = Field(
+        default=Path("configs/openbb.lock.json"),
+        validation_alias=AliasChoices("ISA_OPENBB_LOCK_PATH", "OPENBB_LOCK_PATH"),
+    )
+    openbb_default_provider: str = Field(
+        default="yfinance",
+        validation_alias=AliasChoices("ISA_OPENBB_DEFAULT_PROVIDER", "OPENBB_DEFAULT_PROVIDER"),
+    )
+    openbb_screener_provider: str = Field(
+        default="yfinance",
+        validation_alias=AliasChoices("ISA_OPENBB_SCREENER_PROVIDER", "OPENBB_SCREENER_PROVIDER"),
+    )
+    openbb_screener_country: str | None = Field(
+        default="us",
+        validation_alias=AliasChoices("ISA_OPENBB_SCREENER_COUNTRY", "OPENBB_SCREENER_COUNTRY"),
+    )
+    openbb_screener_exchange: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("ISA_OPENBB_SCREENER_EXCHANGE", "OPENBB_SCREENER_EXCHANGE"),
+    )
+    openbb_screener_market_cap_min: int | None = Field(
+        default=1_000_000_000,
+        validation_alias=AliasChoices(
+            "ISA_OPENBB_SCREENER_MARKET_CAP_MIN", "OPENBB_SCREENER_MARKET_CAP_MIN"
+        ),
+    )
+    openbb_screener_volume_min: int | None = Field(
+        default=100_000,
+        validation_alias=AliasChoices(
+            "ISA_OPENBB_SCREENER_VOLUME_MIN", "OPENBB_SCREENER_VOLUME_MIN"
+        ),
+    )
+    openbb_backend: str = Field(
+        default="odp_rest",
+        validation_alias=AliasChoices("ISA_OPENBB_BACKEND", "OPENBB_BACKEND"),
+    )
+    openbb_odp_api_base_url: str = Field(
+        default="http://127.0.0.1:6900",
+        validation_alias=AliasChoices("ISA_OPENBB_ODP_API_BASE_URL", "OPENBB_ODP_API_BASE_URL"),
+    )
+    openbb_odp_api_username: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("ISA_OPENBB_ODP_API_USERNAME", "OPENBB_ODP_API_USERNAME"),
+    )
+    openbb_odp_api_password: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("ISA_OPENBB_ODP_API_PASSWORD", "OPENBB_ODP_API_PASSWORD"),
+    )
+    openbb_odp_timeout_seconds: float = Field(
+        default=3.0,
+        validation_alias=AliasChoices("ISA_OPENBB_ODP_TIMEOUT_SECONDS", "OPENBB_ODP_TIMEOUT_SECONDS"),
+    )
 
     trading212_api_key: SecretStr | None = Field(
         default=None, validation_alias=AliasChoices("TRADING212_API_KEY", "T212_API_KEY")

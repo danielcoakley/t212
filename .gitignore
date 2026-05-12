@@ -23,6 +23,12 @@ data_lake/
 *.sqlite3
 *.db
 
+# Frontend
+node_modules/
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.vite/
+
 # Editors
 .idea/
 .vscode/

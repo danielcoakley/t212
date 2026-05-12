@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
+<<<<<<< Updated upstream
+=======
+from urllib.parse import urlparse
+>>>>>>> Stashed changes
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import make_url
@@ -16,7 +20,16 @@ from isa_system.db.base import Base
 def make_engine(dsn: str) -> Engine:
     """Create a SQLAlchemy engine."""
 
+<<<<<<< Updated upstream
     _ensure_sqlite_parent(dsn)
+=======
+    if dsn.startswith("sqlite:///") and ":memory:" not in dsn:
+        parsed = urlparse(dsn)
+        db_path = Path(parsed.path.lstrip("/"))
+        if not db_path.is_absolute():
+            db_path = Path.cwd() / db_path
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+>>>>>>> Stashed changes
     connect_args = {"check_same_thread": False} if dsn.startswith("sqlite") else {}
     return create_engine(dsn, future=True, connect_args=connect_args)
 

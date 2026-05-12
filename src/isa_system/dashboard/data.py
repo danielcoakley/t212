@@ -15,7 +15,7 @@ from isa_system.services.instrument_validation import (
     clear_instrument_cache,
     validate_recommendation_instruments,
 )
-from isa_system.services.market_scan import load_broker_market_scan_universe
+from isa_system.services.market_scan import load_odp_market_scan_universe
 from isa_system.services.market_screener import MarketScreenerResponse, build_market_screener
 from isa_system.services.paper_simulation import PaperSimulationSnapshot, simulate_paper_fills
 from isa_system.services.portfolio_state import (
@@ -176,7 +176,7 @@ def _recommendations_payload(
     """Return cached review-only recommendations."""
 
     snapshot = BrokerPortfolioSnapshot.model_validate(broker_payload)
-    scan_universe = load_broker_market_scan_universe()
+    scan_universe = load_odp_market_scan_universe()
     return build_recommendations(
         snapshot,
         candidates=candidates,
@@ -229,7 +229,7 @@ def _recommendation_workflow_payload(
         return cached_payload
 
     snapshot = BrokerPortfolioSnapshot.model_validate(broker_payload)
-    scan_universe = load_broker_market_scan_universe()
+    scan_universe = load_odp_market_scan_universe()
     response = build_recommendations(
         snapshot,
         candidates=candidates,

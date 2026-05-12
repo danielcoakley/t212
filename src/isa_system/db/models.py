@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
+<<<<<<< Updated upstream
 from sqlalchemy import DateTime, Index, Integer, Numeric, String, Text, UniqueConstraint
+=======
+from sqlalchemy import Date, DateTime, Index, Integer, Numeric, String, Text, UniqueConstraint
+>>>>>>> Stashed changes
 from sqlalchemy.orm import Mapped, mapped_column
 
 from isa_system.db.base import Base
@@ -209,6 +213,216 @@ class InstrumentRegistry(Base, TimestampMixin):
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     asset_type: Mapped[str] = mapped_column(String(40), nullable=False)
     is_isa_eligible: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class InstrumentMaster(Base, TimestampMixin):
+    """Tradable instrument master keyed by broker ticker and ISIN where available."""
+
+    __tablename__ = "instrument_master"
+    __table_args__ = (
+        UniqueConstraint("t212_ticker", name="uq_instrument_master_t212_ticker"),
+        Index("ix_instrument_master_isin", "isin"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    t212_ticker: Mapped[str] = mapped_column(String(80), nullable=False)
+    isin: Mapped[str | None] = mapped_column(String(20))
+    name: Mapped[str | None] = mapped_column(String(240))
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    asset_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    isa_accessible: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    working_schedule_id: Mapped[int | None] = mapped_column(Integer)
+    max_open_quantity: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+
+
+class IssuerMaster(Base, TimestampMixin):
+    """Issuer identity record for joining broker, filings, and provider data."""
+
+    __tablename__ = "issuer_master"
+    __table_args__ = (
+        Index("ix_issuer_master_lei", "lei"),
+        Index("ix_issuer_master_company_number", "company_number"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    lei: Mapped[str | None] = mapped_column(String(40))
+    company_number: Mapped[str | None] = mapped_column(String(40))
+    country: Mapped[str | None] = mapped_column(String(2))
+
+
+class IdentityMap(Base, TimestampMixin):
+    """Manual and automated symbol crosswalk with confidence scoring."""
+
+    __tablename__ = "identity_map"
+    __table_args__ = (
+        UniqueConstraint("id_type", "id_value", "target_type", name="uq_identity_map"),
+        Index("ix_identity_map_instrument", "instrument_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instrument_id: Mapped[int | None] = mapped_column(Integer)
+    issuer_id: Mapped[int | None] = mapped_column(Integer)
+    id_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    id_value: Mapped[str] = mapped_column(String(160), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    target_value: Mapped[str] = mapped_column(String(160), nullable=False)
+    confidence: Mapped[Decimal] = mapped_column(Numeric(6, 4), nullable=False)
+    source: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
+class PriceEOD(Base, TimestampMixin):
+    """Normalised daily bar cache for research and backtests."""
+
+    __tablename__ = "prices_eod"
+    __table_args__ = (
+        UniqueConstraint("instrument_id", "price_date", "source", name="uq_prices_eod"),
+        Index("ix_prices_eod_symbol_date", "symbol", "price_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instrument_id: Mapped[int | None] = mapped_column(Integer)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    price_date: Mapped[date] = mapped_column(Date, nullable=False)
+    open: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    high: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    low: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    close: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
+    adj_close: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    volume: Mapped[Decimal | None] = mapped_column(Numeric(24, 4))
+    source: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
+class FundamentalsSnapshot(Base, TimestampMixin):
+    """Point-in-time fundamentals snapshot used by quality signals."""
+
+    __tablename__ = "fundamentals_snapshot"
+    __table_args__ = (Index("ix_fundamentals_issuer_publication", "issuer_id", "publication_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    issuer_id: Mapped[int | None] = mapped_column(Integer)
+    symbol: Mapped[str | None] = mapped_column(String(80))
+    publication_date: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date | None] = mapped_column(Date)
+    metrics_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    source: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
+class FilingRaw(Base, TimestampMixin):
+    """Raw filing or announcement record with audit evidence."""
+
+    __tablename__ = "filings_raw"
+    __table_args__ = (UniqueConstraint("source", "source_doc_id", name="uq_filings_raw_doc"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    issuer_id: Mapped[int | None] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_doc_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    headline: Mapped[str | None] = mapped_column(String(500))
+    headline_code: Mapped[str | None] = mapped_column(String(80))
+    published_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    document_type: Mapped[str | None] = mapped_column(String(80))
+    raw_text: Mapped[str | None] = mapped_column(Text)
+    url_hash: Mapped[str | None] = mapped_column(String(64))
+
+
+class CatalystEvent(Base, TimestampMixin):
+    """Explainable catalyst event extracted from official sources."""
+
+    __tablename__ = "catalyst_events"
+    __table_args__ = (Index("ix_catalyst_events_issuer_published", "issuer_id", "published_at_utc"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    issuer_id: Mapped[int | None] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    published_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    sentiment_score: Mapped[Decimal | None] = mapped_column(Numeric(8, 4))
+    novelty_score: Mapped[Decimal | None] = mapped_column(Numeric(8, 4))
+    thesis_tags_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+
+
+class SignalDaily(Base, TimestampMixin):
+    """Daily strategy signal output."""
+
+    __tablename__ = "signals_daily"
+    __table_args__ = (Index("ix_signals_daily_trade_date", "trade_date", "strategy"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False)
+    instrument_id: Mapped[int | None] = mapped_column(Integer)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    strategy: Mapped[str] = mapped_column(String(80), nullable=False)
+    score: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
+    signal_state: Mapped[str] = mapped_column(String(40), nullable=False)
+    thesis_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+
+
+class ThesisRecord(Base, TimestampMixin):
+    """Human-readable thesis snapshot required before live approval."""
+
+    __tablename__ = "thesis_records"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    signal_id: Mapped[int | None] = mapped_column(Integer)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    thesis_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    invalidation_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+
+
+class Alert(Base, TimestampMixin):
+    """Operator alert shown in the dashboard."""
+
+    __tablename__ = "alerts"
+    __table_args__ = (Index("ix_alerts_status_severity", "status", "severity"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="open", nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    context_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+
+
+class SettingsVersion(Base, TimestampMixin):
+    """Append-only settings audit entry for dashboard changes."""
+
+    __tablename__ = "settings_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    changed_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    diff_json: Mapped[str] = mapped_column(Text, nullable=False)
+    version_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class BacktestRun(Base, TimestampMixin):
+    """Backtest run summary."""
+
+    __tablename__ = "backtest_runs"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    config_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    from_date: Mapped[date] = mapped_column(Date, nullable=False)
+    to_date: Mapped[date] = mapped_column(Date, nullable=False)
+    metrics_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+
+
+class BacktestTrade(Base, TimestampMixin):
+    """Backtest trade row for audit and dashboard display."""
+
+    __tablename__ = "backtest_trades"
+    __table_args__ = (Index("ix_backtest_trades_run_symbol", "run_id", "symbol"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(80), nullable=False)
+    entry_date: Mapped[date] = mapped_column(Date, nullable=False)
+    exit_date: Mapped[date | None] = mapped_column(Date)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
+    entry_price: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
+    exit_price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    fees: Mapped[Decimal] = mapped_column(Numeric(20, 8), default=Decimal("0"), nullable=False)
+    exit_reason: Mapped[str | None] = mapped_column(String(80))
 
 
 class UniverseSnapshot(Base, TimestampMixin):

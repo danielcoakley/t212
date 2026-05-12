@@ -15,12 +15,16 @@ from isa_system.portfolio.costs import CostModel
 from isa_system.portfolio.rebalancer import build_rebalance_plan
 from isa_system.services.deep_research import latest_deep_research_reviews
 from isa_system.services.instrument_validation import validate_recommendation_instruments
+<<<<<<< Updated upstream
 from isa_system.services.market_scan import load_broker_market_scan_universe
 from isa_system.services.paper_persistence import (
     PersistedPaperCycle,
     load_paper_cycle,
     persist_pilot_paper_workflow,
 )
+=======
+from isa_system.services.market_scan import load_odp_market_scan_universe
+>>>>>>> Stashed changes
 from isa_system.services.paper_simulation import PaperSimulationSnapshot, simulate_paper_fills
 from isa_system.services.pilot_workflow import (
     PilotPaperWorkflowSummary,
@@ -40,6 +44,12 @@ from isa_system.services.recommendations import build_recommendations
 from isa_system.services.valuation import value_current_holdings
 
 router = APIRouter()
+
+
+def load_broker_market_scan_universe():
+    """Compatibility alias for tests while routing scans through ODP."""
+
+    return load_odp_market_scan_universe()
 
 
 class RecommendationsPreviewRequest(BaseModel):

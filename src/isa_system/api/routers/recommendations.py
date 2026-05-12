@@ -13,7 +13,7 @@ from isa_system.services.instrument_validation import (
 )
 from isa_system.services.market_scan import (
     MarketScanUniverse,
-    load_broker_market_scan_universe,
+    load_odp_market_scan_universe,
 )
 from isa_system.services.market_screener import MarketScreenerResponse, build_market_screener
 from isa_system.services.portfolio_state import load_trading212_portfolio
@@ -49,7 +49,7 @@ def recommendations(
     """Return review-only trade recommendations for holdings and market candidates."""
 
     snapshot = load_trading212_portfolio()
-    scan_universe = load_broker_market_scan_universe()
+    scan_universe = load_odp_market_scan_universe()
     response = build_recommendations(
         snapshot,
         candidates=candidates,
@@ -65,7 +65,7 @@ def recommendations(
 def scan_universe() -> MarketScanUniverse:
     """Return the configured wider-market scan universe."""
 
-    return load_broker_market_scan_universe()
+    return load_odp_market_scan_universe()
 
 
 @router.get("/screener", response_model=MarketScreenerResponse)
@@ -90,7 +90,7 @@ def _recommendations_for_validation(
     """Build recommendations using the configured scan universe."""
 
     snapshot = load_trading212_portfolio()
-    universe = load_broker_market_scan_universe()
+    universe = load_odp_market_scan_universe()
     return build_recommendations(
         snapshot,
         candidates=candidates,

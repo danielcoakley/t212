@@ -19,13 +19,13 @@ from isa_system.services.valuation import (
     HoldingValuation,
     HoldingValuationData,
     NewsItem,
+    ODPScreenerValuationProvider,
     SentimentSnapshot,
     StaticValuationProvider,
     TechnicalIndicators,
     UpcomingEvent,
     ValuationMetrics,
     ValuationProvider,
-    YFinanceValuationProvider,
     calculate_technicals,
     research_symbol_for_position,
 )
@@ -117,7 +117,7 @@ def build_recommendations(
 ) -> RecommendationsResponse:
     """Build review-only recommendations for holdings plus wider market candidates."""
 
-    valuation_provider = provider or YFinanceValuationProvider()
+    valuation_provider = provider or ODPScreenerValuationProvider()
     as_of = require_utc(as_of_utc or now_utc())
     recommendation_candidates = _recommendation_candidates(
         snapshot,
@@ -253,7 +253,7 @@ def _recommend_candidate(
         current_price=candidate.current_price,
         current_value=candidate.current_value,
         valuation=data.valuation,
-        technicals=calculate_technicals(data.daily_adjusted_closes, warnings),
+        technicals=data.technicals or calculate_technicals(data.daily_adjusted_closes, warnings),
         upcoming_events=data.upcoming_events,
         news=data.news,
         sentiment=data.sentiment,

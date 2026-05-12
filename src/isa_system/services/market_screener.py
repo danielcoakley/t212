@@ -11,7 +11,7 @@ from isa_system.services.instrument_validation import validate_recommendation_in
 from isa_system.services.market_scan import (
     DEFAULT_BROKER_SCAN_LIMIT,
     DEFAULT_DISPLAY_LIMIT,
-    load_broker_market_scan_universe,
+    load_odp_market_scan_universe,
 )
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot, load_trading212_portfolio
 from isa_system.services.recommendation_handoff import build_recommendation_handoff
@@ -66,9 +66,7 @@ def build_market_screener(
     """Run a broad broker-universe scan and return review-only rows."""
 
     broker_snapshot = snapshot or load_trading212_portfolio(settings)
-    universe = load_broker_market_scan_universe(
-        settings=settings, max_loaded=max_loaded, max_symbols=top_n
-    )
+    universe = load_odp_market_scan_universe(settings=settings, max_symbols=top_n)
     recommendations = build_recommendations(
         broker_snapshot,
         candidates=[],

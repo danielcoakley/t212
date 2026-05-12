@@ -14,7 +14,7 @@ from isa_system.services.deep_research import (
     run_deep_research,
 )
 from isa_system.services.instrument_validation import validate_recommendation_instruments
-from isa_system.services.market_scan import load_broker_market_scan_universe
+from isa_system.services.market_scan import load_odp_market_scan_universe
 from isa_system.services.portfolio_state import load_trading212_portfolio
 from isa_system.services.recommendation_handoff import build_recommendation_handoff
 from isa_system.services.recommendations import build_recommendations
@@ -72,7 +72,7 @@ def latest_review(
 
 def _recommendations():
     snapshot = load_trading212_portfolio()
-    universe = load_broker_market_scan_universe()
+    universe = load_odp_market_scan_universe()
     return build_recommendations(
         snapshot,
         candidates=[],
