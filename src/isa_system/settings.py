@@ -161,8 +161,47 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", validation_alias="OPENAI_MODEL")
     openai_health_model: str = Field(
-        default="o3-deep-research",
+        default="gpt-5.5",
         validation_alias=AliasChoices("OPENAI_HEALTH_MODEL", "OPENAI_DEEP_RESEARCH_MODEL"),
+    )
+    openai_health_check_model: str = Field(
+        default="gpt-5.5", validation_alias="OPENAI_HEALTH_CHECK_MODEL"
+    )
+    openai_health_check_reasoning_effort: str = Field(
+        default="medium", validation_alias="OPENAI_HEALTH_CHECK_REASONING_EFFORT"
+    )
+    openai_health_check_detailed_reasoning_effort: str = Field(
+        default="high", validation_alias="OPENAI_HEALTH_CHECK_DETAILED_REASONING_EFFORT"
+    )
+    openai_stock_valuation_model: str = Field(
+        default="gpt-5.5", validation_alias="OPENAI_STOCK_VALUATION_MODEL"
+    )
+    openai_stock_valuation_reasoning_effort: str = Field(
+        default="high", validation_alias="OPENAI_STOCK_VALUATION_REASONING_EFFORT"
+    )
+    openai_stock_valuation_max_reasoning_effort: str = Field(
+        default="xhigh", validation_alias="OPENAI_STOCK_VALUATION_MAX_REASONING_EFFORT"
+    )
+    openai_source_research_model: str = Field(
+        default="o3-deep-research", validation_alias="OPENAI_SOURCE_RESEARCH_MODEL"
+    )
+    openai_enable_o3_source_research: bool = Field(
+        default=False, validation_alias="OPENAI_ENABLE_O3_SOURCE_RESEARCH"
+    )
+    openai_health_check_max_output_tokens: int = Field(
+        default=6000, validation_alias="OPENAI_HEALTH_CHECK_MAX_OUTPUT_TOKENS"
+    )
+    openai_stock_valuation_max_output_tokens: int = Field(
+        default=14000, validation_alias="OPENAI_STOCK_VALUATION_MAX_OUTPUT_TOKENS"
+    )
+    openai_source_research_max_output_tokens: int = Field(
+        default=20000, validation_alias="OPENAI_SOURCE_RESEARCH_MAX_OUTPUT_TOKENS"
+    )
+    openai_deep_valuation_max_concurrency: int = Field(
+        default=1, validation_alias="OPENAI_DEEP_VALUATION_MAX_CONCURRENCY"
+    )
+    openai_deep_research_selected_stock_limit: int = Field(
+        default=5, validation_alias="OPENAI_DEEP_RESEARCH_SELECTED_STOCK_LIMIT"
     )
 
 

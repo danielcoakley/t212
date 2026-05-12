@@ -14,6 +14,11 @@ from sqlalchemy import or_, select
 from isa_system.db.crud import append_audit_log
 from isa_system.db.models import ResearchReview as ResearchReviewRecord
 from isa_system.db.session import init_db, make_engine, make_session_factory
+from isa_system.services.ai_model_config import (
+    AIModelConfig,
+    AIModelTask,
+    get_model_config_for_task,
+)
 from isa_system.services.instrument_validation import InstrumentValidationRow
 from isa_system.services.recommendations import TradeRecommendation
 from isa_system.settings import Settings, get_settings
@@ -159,6 +164,10 @@ def run_deep_research(
     """
 
     app_settings = settings or get_settings()
+    model_config = get_model_config_for_task(
+        AIModelTask.SELECTED_STOCK_VALUATION,
+        settings=app_settings,
+    )
     generated_at_utc = now_utc()
     expires_at_utc = generated_at_utc + timedelta(days=ttl_days)
     evidence_hash = sha256_digest(request.model_dump(mode="json"))
@@ -166,7 +175,7 @@ def run_deep_research(
         review = _unavailable_review(
             request,
             status=DeepResearchStatus.UNAVAILABLE,
-            model=app_settings.openai_model,
+            model=model_config.model,
             evidence_hash=evidence_hash,
             generated_at_utc=generated_at_utc,
             expires_at_utc=expires_at_utc,
@@ -176,7 +185,7 @@ def run_deep_research(
             persist_deep_research_review(review, settings=app_settings)
         return review
 
-    payload = _openai_payload(request, app_settings.openai_model)
+    payload = _openai_payload(request, model_config)
     api_key = app_settings.openai_api_key.get_secret_value()
     try:
         with httpx.Client(timeout=60.0, transport=transport) as client:
@@ -193,7 +202,7 @@ def run_deep_research(
         review = _unavailable_review(
             request,
             status=DeepResearchStatus.FAILED,
-            model=app_settings.openai_model,
+            model=model_config.model,
             evidence_hash=evidence_hash,
             generated_at_utc=generated_at_utc,
             expires_at_utc=expires_at_utc,
@@ -208,7 +217,7 @@ def run_deep_research(
         review = _unavailable_review(
             request,
             status=DeepResearchStatus.FAILED,
-            model=app_settings.openai_model,
+            model=model_config.model,
             evidence_hash=evidence_hash,
             generated_at_utc=generated_at_utc,
             expires_at_utc=expires_at_utc,
@@ -221,7 +230,7 @@ def run_deep_research(
     review = _review_from_model_response(
         request,
         parsed=parsed,
-        model=app_settings.openai_model,
+        model=model_config.model,
         evidence_hash=evidence_hash,
         generated_at_utc=generated_at_utc,
         expires_at_utc=expires_at_utc,
@@ -385,11 +394,11 @@ def _unavailable_review(
     )
 
 
-def _openai_payload(request: DeepResearchInput, model: str) -> dict[str, Any]:
+def _openai_payload(request: DeepResearchInput, model_config: AIModelConfig) -> dict[str, Any]:
     """Build a strict JSON Responses API payload for thesis validation."""
 
     return {
-        "model": model,
+        "model": model_config.model,
         "input": [
             {
                 "role": "system",
@@ -405,6 +414,8 @@ def _openai_payload(request: DeepResearchInput, model: str) -> dict[str, Any]:
                 "content": request.model_dump_json(),
             },
         ],
+        "reasoning": {"effort": model_config.reasoning_effort},
+        "max_output_tokens": model_config.max_output_tokens,
         "text": {
             "format": {
                 "type": "json_schema",

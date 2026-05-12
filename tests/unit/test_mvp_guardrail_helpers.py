@@ -7,12 +7,11 @@ from pathlib import Path
 
 from pydantic import SecretStr
 
-from isa_system.dashboard.pages.management import provider_status_rows, safety_checklist_rows
-from isa_system.dashboard.recommendation_charts import consolidated_recommendation_frame
 from isa_system.data.providers.trading212 import Trading212Instrument
 from isa_system.db.crud import append_audit_log
 from isa_system.db.session import init_db, make_engine, make_session_factory
 from isa_system.domain.enums import RuntimeMode
+from isa_system.execution.risk_checks import check_kill_switch, check_live_arming
 from isa_system.services.deep_research import (
     DeepResearchDecision,
     DeepResearchInput,
@@ -22,7 +21,7 @@ from isa_system.services.deep_research import (
 )
 from isa_system.services.instrument_validation import validate_recommendation_instruments
 from isa_system.services.portfolio_state import BrokerPortfolioSnapshot
-from isa_system.services.recommendation_handoff import build_recommendation_handoff
+from isa_system.services.recommendation_handoff import HandoffStatus, build_recommendation_handoff
 from isa_system.services.recommendation_preview import build_preview_from_recommendation_handoff
 from isa_system.services.recommendations import (
     RecommendationsResponse,
@@ -49,42 +48,33 @@ def test_deep_research_missing_key_is_unavailable_without_network() -> None:
     assert "cannot approve" in review.thesis
 
 
-def test_management_helpers_keep_kill_switch_a_hard_live_block() -> None:
-    """Management rows reflect armed settings but keep kill switch precedence visible."""
+def test_risk_checks_keep_kill_switch_a_hard_live_block() -> None:
+    """Kill switch remains an explicit hard block even when live mode is armed."""
+
+    live_check = check_live_arming(RuntimeMode.LIVE, live_armed=True)
+    kill_switch_check = check_kill_switch(kill_switch_enabled=True)
+
+    assert live_check.passed is True
+    assert kill_switch_check.passed is False
+    assert "Kill switch is enabled" in kill_switch_check.message
+
+
+def test_settings_summary_does_not_render_secret_values() -> None:
+    """Settings summaries should never expose local credential contents."""
 
     settings = Settings(
         _env_file=None,
-        runtime_mode=RuntimeMode.LIVE,
-        live_armed=True,
-        kill_switch_enabled=True,
-        openai_api_key=SecretStr("openai"),
+        trading212_api_key=SecretStr("broker-key"),
+        trading212_api_secret=SecretStr("broker-secret"),
+        openai_api_key=SecretStr("openai-secret"),
+        sec_user_agent="isa-system-test",
     )
-    rows = safety_checklist_rows(_snapshot(), settings)
-    by_check = {row["Check"]: row for row in rows}
+    rendered = str(settings.model_dump())
 
-    assert by_check["Kill switch"]["Status"] == "Enabled"
-    assert by_check["Live submission"]["Status"] == "Blocked"
-    assert "kill switch" in by_check["Kill switch"]["Detail"].lower()
-
-
-def test_provider_helpers_report_configuration_without_secret_values() -> None:
-    """Provider configuration rows should never expose local credential contents."""
-
-    rows = provider_status_rows(
-        Settings(
-            _env_file=None,
-            trading212_api_key=SecretStr("broker-key"),
-            trading212_api_secret=SecretStr("broker-secret"),
-            openai_api_key=SecretStr("openai-secret"),
-            sec_user_agent="isa-system-test",
-        )
-    )
-    rendered = " ".join(str(value) for row in rows for value in row.values())
-
-    assert {row["Provider"] for row in rows} >= {"Trading 212", "OpenAI", "SEC EDGAR"}
     assert "broker-key" not in rendered
     assert "broker-secret" not in rendered
     assert "openai-secret" not in rendered
+    assert "**********" in rendered
 
 
 def test_sqlite_first_run_creates_parent_and_accepts_audit_rows(tmp_path: Path) -> None:
@@ -144,8 +134,8 @@ def test_recommendation_preview_never_sizes_unapproved_or_missing_rows() -> None
     assert rows["MISSING.L"].blockers == ["RECOMMENDATION_NOT_FOUND"]
 
 
-def test_review_table_exposes_preview_readiness_without_order_authority() -> None:
-    """Even eligible review rows remain dashboard context, not submit instructions."""
+def test_handoff_rows_expose_preview_readiness_without_order_authority() -> None:
+    """Even eligible review rows remain context, not submit instructions."""
 
     recommendations = _recommendations_response(["GOOD.L"])
     validation = validate_recommendation_instruments(
@@ -158,15 +148,15 @@ def test_review_table_exposes_preview_readiness_without_order_authority() -> Non
         research_reviews={"GOOD.L": _research_review("GOOD.L")},
     )
 
-    frame = consolidated_recommendation_frame(recommendations, handoff, validation)
+    row = handoff.rows[0]
     forbidden_fragments = ("order", "submit", "idempotency", "batch_hash", "authority")
 
-    assert len(frame) == 1
-    assert bool(frame.loc[0, "preview_eligible"]) is True
-    assert frame.loc[0, "review_state"] == "Preview ready"
-    assert frame.loc[0, "research_gate"] == "RESEARCH_PASSED"
+    assert len(handoff.rows) == 1
+    assert row.eligible_for_preview is True
+    assert row.handoff_status == HandoffStatus.ELIGIBLE
+    assert row.research_review_status == "RESEARCH_PASSED"
     assert not any(
-        fragment in column.lower() for column in frame.columns for fragment in forbidden_fragments
+        fragment in field.lower() for field in row.model_dump() for fragment in forbidden_fragments
     )
 
 

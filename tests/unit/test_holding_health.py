@@ -56,15 +56,19 @@ def test_holding_health_report_uses_configured_openai_model(tmp_path: Path) -> N
     settings = _settings(
         tmp_path,
         openai_api_key=SecretStr("test-key"),
-        openai_health_model="o3-deep-research",
+        openai_health_check_model="test-health-model",
+        openai_health_check_reasoning_effort="medium",
+        openai_health_check_max_output_tokens=1234,
     )
     snapshot = _snapshot()
     valuation = _valuation(snapshot)
 
     def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
-        assert payload["model"] == "o3-deep-research"
-        assert payload["tools"] == [{"type": "web_search_preview"}]
+        assert payload["model"] == "test-health-model"
+        assert payload["reasoning"] == {"effort": "medium"}
+        assert payload["max_output_tokens"] == 1234
+        assert "tools" not in payload
         return httpx.Response(
             200,
             json={

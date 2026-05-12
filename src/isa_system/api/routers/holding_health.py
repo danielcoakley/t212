@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, ConfigDict
 
 from isa_system.services.holding_health import (
     HoldingHealthReport,
@@ -24,14 +25,27 @@ from isa_system.settings import get_settings
 router = APIRouter(prefix="/health-check", tags=["holding-health"])
 
 
+class RunHealthCheckRequest(BaseModel):
+    """Options for an on-demand portfolio health check."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    detailed: bool = False
+
+
 @router.post("/run", response_model=HoldingHealthReportDetail)
-def run_health_check() -> HoldingHealthReportDetail:
+def run_health_check(request: RunHealthCheckRequest | None = None) -> HoldingHealthReportDetail:
     """Run a current-holdings health report and persist the run history."""
 
     settings = get_settings()
     snapshot = load_trading212_portfolio(force_refresh=True)
     valuation = value_current_holdings(snapshot)
-    report = run_holding_health_report(snapshot, valuation, settings=settings)
+    report = run_holding_health_report(
+        snapshot,
+        valuation,
+        settings=settings,
+        detailed=(request.detailed if request is not None else False),
+    )
     detail = get_holding_health_report_detail(report.id, settings=settings)
     if detail is None:
         return HoldingHealthReportDetail(report=report, updates=[])
